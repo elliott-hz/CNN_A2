@@ -1,13 +1,34 @@
+# Core ML Frameworks (CPU version for testing, GPU version for training)
+# For CPU testing (faster installation):
 torch>=2.0.0
 torchvision>=0.15.0
+
+# For GPU training on AWS SageMaker, uncomment below and comment out above:
+# torch>=2.0.0+cu118
+# torchvision>=0.15.0+cu118
+
+# Detection
 ultralytics>=8.0.0
+
+# Image Processing
 opencv-python>=4.7.0
+Pillow>=9.5.0
+
+# Data Science
 numpy>=1.24.0
 pandas>=2.0.0
+scikit-learn>=1.2.0
+
+# Visualization
 matplotlib>=3.7.0
-Pillow>=9.5.0
+seaborn>=0.12.0
+
+# Utilities
 tqdm>=4.65.0
 pyyaml>=6.0
-scikit-learn>=1.2.0
-seaborn>=0.12.0
+
+# Dataset Download
 kaggle>=1.5.0
+
+# Optional: Advanced augmentations
+# albumentations>=1.3.0

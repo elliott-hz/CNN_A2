@@ -286,19 +286,23 @@ class DetectionPreprocessor:
         """
         Save split metadata as JSON files to data/splitting/detection_split/.
         
+        Note: For detection dataset, images are preprocessed and saved with new names.
+        The split files record which original images belong to each split for reference.
+        
         Args:
             splits: Dictionary containing split data
         """
-        # Save each split as JSON
+        # Save each split as JSON with original image paths (for reference only)
         for split_name in ['train', 'val', 'test']:
             split_data = {
-                'images': splits[f'{split_name}_images'],
-                'annotations': splits[f'{split_name}_annotations']
+                'original_image_paths': splits[f'{split_name}_images'],
+                'num_samples': len(splits[f'{split_name}_images']),
+                'note': f'Original raw image paths. Processed images are in data/processed/detection/{split_name if split_name != "val" else "valid"}/'
             }
             output_file = self.splitting_dir / f"{split_name}_split.json"
             with open(output_file, 'w') as f:
                 json.dump(split_data, f, indent=2)
-            print(f"  Saved {split_name} split: {len(split_data['images'])} images")
+            print(f"  Saved {split_name} split: {len(split_data['original_image_paths'])} images")
         
         # Save overall metadata
         metadata = {
@@ -312,7 +316,7 @@ class DetectionPreprocessor:
             'format': 'YOLO',
             'preprocessing': 'letterbox_resize',
             'target_size': self.image_size,
-            'note': 'Images are preprocessed with letterbox resize and saved as individual files'
+            'note': 'Images are preprocessed with letterbox resize and saved as individual files. Use dataset.yaml for training.'
         }
         
         metadata_file = self.splitting_dir / "metadata.json"
@@ -445,7 +449,15 @@ class DetectionPreprocessor:
                     gc.collect()
                     
                 except Exception as e:
+                    # Log the specific error for debugging
+                    print(f"\n  ⚠ Error processing image {img_path}: {str(e)}")
                     failed_images.append(img_path)
+                    # Ensure cleanup before continuing to next image
+                    try:
+                        del img, img_processed, bboxes_processed
+                    except:
+                        pass
+                    gc.collect()
                     continue
             
             # Clear batch memory
@@ -497,7 +509,42 @@ class DetectionPreprocessor:
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
         print(f"  Saved metadata to {metadata_file}")
-
+        
+        # Generate YOLOv8 dataset configuration file
+        self._generate_yolo_dataset_config(processed_info)
+    
+    def _generate_yolo_dataset_config(self, processed_info: Dict):
+        """
+        Generate YOLOv8 dataset configuration YAML file.
+        This file is required for YOLOv8 training.
+        Uses relative paths for portability across different machines.
+        
+        Args:
+            processed_info: Dictionary with processing statistics
+        """
+        # Use relative path ('.' means current directory where dataset.yaml is located)
+        # This makes the config portable across different machines
+        yolo_config = {
+            'path': '.',           # Current directory (where dataset.yaml is located)
+            'train': 'train',      # Relative path to train images
+            'val': 'valid',        # Relative path to validation images
+            'test': 'test',        # Relative path to test images
+            
+            # Number of classes
+            'nc': 1,
+            
+            # Class names (dog face detection has only one class)
+            'names': ['dog_face']
+        }
+        
+        # Save as YAML file
+        config_file = self.processed_dir / "dataset.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump(yolo_config, f, default_flow_style=False, sort_keys=False)
+        
+        print(f"  ✓ Generated YOLOv8 dataset config: {config_file}")
+        print(f"    Using relative paths for portability")
+        print(f"    Classes: {yolo_config['nc']} ({yolo_config['names']})")
 
 def main():
     """Main function to run detection dataset preprocessing."""

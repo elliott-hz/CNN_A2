@@ -1,5 +1,6 @@
 # Data directory - will be compressed to zip and committed separately
 data/
+!data/*.zip
 
 # Python
 __pycache__/

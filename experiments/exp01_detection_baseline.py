@@ -12,7 +12,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.data_processing.processed_datasets_verify import verify_processed_datasets
-from src.data_processing.detection_preprocessor import DetectionPreprocessor
 from src.models.detection_model import YOLOv8Detector, BASELINE_DETECTION_CONFIG
 from src.training.detection_trainer import DetectionTrainer
 from src.evaluation.detection_evaluator import DetectionEvaluator
@@ -36,18 +35,24 @@ def main():
     logger.info("\n[Step 1/5] Verifying processed datasets...")
     if not verify_processed_datasets():
         logger.error("Datasets not ready. Please run preprocessing first.")
-        logger.error("Run: python src/data_processing/detection_preprocessor.py")
-        logger.error("Run: python src/data_processing/emotion_preprocessor.py")
+        logger.error("Run: bash scripts/run_data_preprocessing.sh")
         sys.exit(1)
     
-    # Step 2: Load preprocessed data
-    logger.info("\n[Step 2/5] Loading preprocessed data...")
-    preprocessor = DetectionPreprocessor()
-    X_train, y_train = preprocessor.load_split('train')
-    X_valid, y_valid = preprocessor.load_split('valid')
-    X_test, y_test = preprocessor.load_split('test')
+    # Step 2: Load dataset configuration
+    logger.info("\n[Step 2/5] Loading dataset configuration...")
+    dataset_config_path = Path("data/processed/detection/dataset.yaml")
     
-    logger.info(f"Train: {len(X_train)}, Valid: {len(X_valid)}, Test: {len(X_test)}")
+    if not dataset_config_path.exists():
+        logger.error(f"Dataset config not found: {dataset_config_path}")
+        logger.error("Please run preprocessing first: bash scripts/run_data_preprocessing.sh")
+        sys.exit(1)
+    
+    with open(dataset_config_path, 'r') as f:
+        dataset_config = yaml.safe_load(f)
+    
+    logger.info(f"Dataset config loaded from: {dataset_config_path}")
+    logger.info(f"Dataset root: {dataset_config['path']}")
+    logger.info(f"Classes: {dataset_config['nc']} ({dataset_config['names']})")
     
     # Step 3: Initialize model and trainer
     logger.info("\n[Step 3/5] Initializing model and trainer...")
@@ -82,13 +87,11 @@ def main():
     
     # Step 4: Train model
     logger.info("\n[Step 4/5] Training model...")
-    # Note: For actual training, you need to prepare data in YOLO format
-    # This is a placeholder - adapt based on your data structure
     try:
         results = trainer.train(
             model=model,
-            train_data="path/to/train/data",  # Replace with actual path
-            val_data="path/to/val/data",      # Replace with actual path
+            train_data=str(dataset_config_path),  # Pass dataset config path
+            val_data=str(dataset_config_path),    # YOLO uses same config for train/val
             output_dir=str(output_dir)
         )
         
@@ -96,17 +99,18 @@ def main():
         
     except Exception as e:
         logger.error(f"Training failed: {e}")
-        logger.info("Note: Ensure data is prepared in YOLO format before training")
+        import traceback
+        traceback.print_exc()
         return
     
     # Evaluate model
-    logger.info("\nEvaluating model on test set...")
+    logger.info("\n[Step 5/5] Evaluating model on test set...")
     evaluator = DetectionEvaluator()
     
     try:
         metrics = evaluator.evaluate(
             model=model,
-            test_data="path/to/test/data",  # Replace with actual path
+            test_data=str(dataset_config_path),  # Pass dataset config path
             output_dir=str(output_dir)
         )
         
@@ -121,6 +125,8 @@ def main():
         
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

@@ -220,6 +220,55 @@ class EmotionPreprocessor:
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
         print(f"  Saved metadata")
+    
+    def load_split(self, split_name: str = 'train') -> Tuple[np.ndarray, list]:
+        """
+        Load a specific data split from JSON metadata.
+        Supports 'train', 'valid'/'val', and 'test' splits ('valid' is alias for 'val').
+        
+        Args:
+            split_name: 'train', 'valid'/'val', or 'test'
+            
+        Returns:
+            Tuple of (image_paths, labels) arrays
+        """
+        import json
+        from PIL import Image
+        import numpy as np
+        
+        # Support 'valid' as alias for 'val'
+        if split_name == 'valid':
+            split_name = 'val'
+        
+        # Load the split metadata
+        split_file = self.splitting_dir / f"{split_name}_split.json"
+        if not split_file.exists():
+            raise FileNotFoundError(f"Split file does not exist: {split_file}")
+        
+        with open(split_file, 'r') as f:
+            split_data = json.load(f)
+        
+        image_paths = split_data['images']
+        raw_labels = split_data['labels']
+        
+        # Convert labels to numeric format
+        labels = [self.class_to_idx[label] for label in raw_labels]
+        
+        # Load and preprocess images
+        images = []
+        for img_path in image_paths:
+            img = Image.open(img_path).convert('RGB')
+            # Resize to standard size for classification (224x224 for ResNet50)
+            img = img.resize((224, 224))
+            # Convert to numpy array and normalize
+            img_array = np.array(img).astype(np.float32) / 255.0
+            images.append(img_array)
+        
+        # Convert to numpy arrays
+        X = np.array(images, dtype=np.float32)
+        y = np.array(labels, dtype=np.int64)
+        
+        return X, y
 
 
 def main():

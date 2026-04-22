@@ -69,6 +69,12 @@ def _check_detection_dataset(processed_dir: Path, split_dir: Path) -> bool:
     """
     Check if detection dataset is processed and split.
     
+    YOLOv8 expects this structure:
+    {split}/
+    ├── img_00000.jpg
+    └── labels/
+        └── img_00000.txt
+    
     Args:
         processed_dir: Directory containing processed image files
         split_dir: Directory containing split metadata
@@ -78,10 +84,10 @@ def _check_detection_dataset(processed_dir: Path, split_dir: Path) -> bool:
     """
     # Check processed image directories (with letterbox padding)
     required_dirs = ['train', 'valid', 'test']
-    annotation_dirs = ['annotations/train', 'annotations/valid', 'annotations/test']
+    label_dirs = ['train/labels', 'valid/labels', 'test/labels']  # Changed: labels inside split folders
     
     missing_dirs = []
-    for dir_name in required_dirs + annotation_dirs:
+    for dir_name in required_dirs + label_dirs:
         dir_path = processed_dir / dir_name
         if not dir_path.exists():
             missing_dirs.append(dir_name)
@@ -107,14 +113,14 @@ def _check_detection_dataset(processed_dir: Path, split_dir: Path) -> bool:
             print(f"  ✗ No images found in {img_dir}")
             return False
     
-    # Check annotation files
+    # Check label files (in labels/ subdirectory within each split)
     for split_name in required_dirs:
-        ann_dir = processed_dir / 'annotations' / split_name
-        annotations = list(ann_dir.glob('*.txt'))
-        ann_count = len(annotations)
+        label_dir = processed_dir / split_name / 'labels'  # Changed path
+        labels = list(label_dir.glob('*.txt'))
+        label_count = len(labels)
         
-        if ann_count != split_counts[split_name]:
-            print(f"  ⚠ Warning: {split_name} has {split_counts[split_name]} images but {ann_count} annotations")
+        if label_count != split_counts[split_name]:
+            print(f"  ⚠ Warning: {split_name} has {split_counts[split_name]} images but {label_count} labels")
     
     # Read metadata and display info
     import json

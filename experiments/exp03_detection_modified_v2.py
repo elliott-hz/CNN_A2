@@ -52,13 +52,13 @@ def main():
     training_config = {
         'learning_rate': 0.002,   # Higher learning rate for smaller model
         'batch_size': 32,         # Larger batch size
-        'epochs': 40,             # Fewer epochs
+        'epochs': 120,            # Increased from 40 to 120
         'optimizer': 'sgd',       # SGD optimizer
         'weight_decay': 1e-4,
-        'early_stopping_patience': 8,
+        'early_stopping_patience': 15,  # Increased proportionally
         'use_amp': True,
         'gradient_accumulation_steps': 1,
-        'warmup_epochs': 3,
+        'warmup_epochs': 10,      # Increased to 10% of total epochs
         'scheduler': 'step'
     }
     

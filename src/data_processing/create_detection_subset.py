@@ -192,7 +192,7 @@ class DetectionSubsetCreator:
             'val': 'images/val',          # Changed from 'valid' to 'val'
             'test': 'images/test',
             'nc': 1,
-            'names': ['dog_face']
+            'names': ['dog']              # Changed from 'dog_face' to 'dog' for consistency
         }
         
         config_file = self.output_dir / "dataset.yaml"

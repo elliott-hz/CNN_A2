@@ -80,13 +80,13 @@ def main():
     training_config = {
         'learning_rate': 0.001,
         'batch_size': 16,
-        'epochs': 50,
+        'epochs': 120,
         'optimizer': 'adam',
         'weight_decay': 1e-4,
-        'early_stopping_patience': 10,
-        'use_amp': False,
+        'early_stopping_patience': 15,
+        'use_amp': True,
         'gradient_accumulation_steps': 1,
-        'warmup_epochs': 5,
+        'warmup_epochs': 10,
         'scheduler': 'cosine'
     }
     

@@ -55,13 +55,13 @@ def main():
     training_config = {
         'learning_rate': 0.0005,  # Lower learning rate for larger model
         'batch_size': 8,          # Smaller batch due to larger model
-        'epochs': 60,             # More epochs
+        'epochs': 120,            # Increased from 60 to 120
         'optimizer': 'adamw',     # AdamW optimizer
         'weight_decay': 1e-4,
-        'early_stopping_patience': 12,
+        'early_stopping_patience': 15,  # Increased proportionally
         'use_amp': True,
         'gradient_accumulation_steps': 1,  # Set to 1 (not implemented in YOLOv8)
-        'warmup_epochs': 5,
+        'warmup_epochs': 10,      # Increased to 10% of total epochs
         'scheduler': 'cosine'
     }
     

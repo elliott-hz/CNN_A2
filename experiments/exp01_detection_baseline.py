@@ -11,7 +11,6 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.data_processing.processed_datasets_verify import verify_processed_datasets
 from src.models.detection_model import YOLOv8Detector, BASELINE_DETECTION_CONFIG
 from src.training.detection_trainer import DetectionTrainer
 from src.evaluation.detection_evaluator import DetectionEvaluator
@@ -23,28 +22,35 @@ import yaml
 def main():
     """Run Experiment 01: Detection Baseline."""
     
+    # Configuration flag for using small subset
+    USE_SMALL_SUBSET = True  # Set to False to use full dataset
+    
     # Setup
     experiment_name = "exp01_detection_baseline"
     logger = setup_logger(experiment_name)
     
     logger.info("=" * 80)
     logger.info(f"STARTING EXPERIMENT: {experiment_name}")
+    if USE_SMALL_SUBSET:
+        logger.info("MODE: Using SMALL SUBSET for quick testing")
+    else:
+        logger.info("MODE: Using FULL DATASET")
     logger.info("=" * 80)
     
-    # Step 1: Verify datasets are processed
-    logger.info("\n[Step 1/5] Verifying processed datasets...")
-    if not verify_processed_datasets():
-        logger.error("Datasets not ready. Please run preprocessing first.")
-        logger.error("Run: bash scripts/run_data_preprocessing.sh")
-        sys.exit(1)
+    # Step 1: Load dataset configuration
+    logger.info("\n[Step 1/5] Loading dataset configuration...")
     
-    # Step 2: Load dataset configuration
-    logger.info("\n[Step 2/5] Loading dataset configuration...")
-    dataset_config_path = Path("data/processed/detection/dataset.yaml")
+    if USE_SMALL_SUBSET:
+        dataset_config_path = Path("data/processed/detection_small/dataset.yaml")
+    else:
+        dataset_config_path = Path("data/processed/detection/dataset.yaml")
     
     if not dataset_config_path.exists():
         logger.error(f"Dataset config not found: {dataset_config_path}")
-        logger.error("Please run preprocessing first: bash scripts/run_data_preprocessing.sh")
+        if USE_SMALL_SUBSET:
+            logger.error("Please create subset first: python src/data_processing/create_detection_subset.py")
+        else:
+            logger.error("Please run preprocessing first: bash scripts/run_data_preprocessing.sh")
         sys.exit(1)
     
     with open(dataset_config_path, 'r') as f:
@@ -54,7 +60,7 @@ def main():
     logger.info(f"Dataset root: {dataset_config['path']}")
     logger.info(f"Classes: {dataset_config['nc']} ({dataset_config['names']})")
     
-    # Step 3: Initialize model and trainer
+    # Step 2: Initialize model and trainer
     logger.info("\n[Step 3/5] Initializing model and trainer...")
     
     # Use baseline configuration
@@ -62,14 +68,14 @@ def main():
     
     training_config = {
         'learning_rate': 0.001,
-        'batch_size': 4,
-        'epochs': 1,
+        'batch_size': 16,
+        'epochs': 50,
         'optimizer': 'adam',
         'weight_decay': 1e-4,
         'early_stopping_patience': 10,
         'use_amp': False,
         'gradient_accumulation_steps': 1,
-        'warmup_epochs': 0,
+        'warmup_epochs': 5,
         'scheduler': 'cosine'
     }
     
@@ -85,8 +91,8 @@ def main():
     # Initialize trainer
     trainer = DetectionTrainer(model_config, training_config)
     
-    # Step 4: Train model
-    logger.info("\n[Step 4/5] Training model...")
+    # Step 3: Train model
+    logger.info("\n[Step 3/5] Training model...")
     try:
         results = trainer.train(
             model=model,
@@ -104,7 +110,7 @@ def main():
         sys.exit(1)
     
     # Evaluate model
-    logger.info("\n[Step 5/5] Evaluating model on test set...")
+    logger.info("\n[Step 4/5] Evaluating model on test set...")
     
     # Reload best model weights for evaluation
     best_model_path = output_dir / "model" / "best_model.pt"

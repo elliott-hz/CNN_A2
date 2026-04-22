@@ -1085,7 +1085,7 @@ Use this for full-scale model training with NVIDIA T4 GPU (16GB VRAM).
 ##### Step 1: Activate Conda Environment (SageMaker Default)
 
 ```bash
-conda activate pytorch_p310
+pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ##### Step 2: Install Dependencies
@@ -1095,11 +1095,17 @@ cd CNN_A3
 pip install -r requirements.txt
 ```
 
+##### Step 3: Fix NumPy Compatibility
+
+Some packages may upgrade NumPy to 2.x, which is incompatible. Force downgrade:
+
+```bash
+pip install 'numpy>=1.24.0,<2.0.0' --force-reinstall
+```
+
 ✅ **Verify GPU Availability:**
 ```python
-import torch
-print(f"CUDA Available: {torch.cuda.is_available()}")
-print(f"GPU Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'None'}")
+python -c "import torch; print(f'CUDA Available: {torch.cuda.is_available()}'); print(f'GPU Device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')"
 ```
 
 Expected output: `CUDA Available: True`

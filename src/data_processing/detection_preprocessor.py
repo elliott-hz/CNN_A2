@@ -30,610 +30,193 @@ Output:
 """
 
 import os
-import sys
-from pathlib import Path
-import numpy as np
-import json
+import shutil
+from sklearn.model_selection import train_test_split
 import yaml
-from tqdm import tqdm
-import cv2
-import gc
-import warnings
-import contextlib
-import io
-from typing import Tuple, List, Dict
 
 
 class DetectionPreprocessor:
     """
-    Preprocesses dog face detection dataset using Albumentations letterbox.
-    Preserves aspect ratio with padding to avoid image distortion.
-    Saves processed images as individual files for memory efficiency.
+    A preprocessor for detection datasets that organizes images and labels
+    into train/val/test splits for YOLOv8 training.
     """
     
-    def __init__(self, config_path: str = "config.yaml"):
+    def __init__(self, raw_data_path, processed_data_path="data/processed/detection", test_size=0.2, val_size=0.5):
         """
-        Initialize preprocessor with configuration.
+        Initializes the DetectionPreprocessor.
         
         Args:
-            config_path: Path to configuration file
+            raw_data_path: Path to the raw dataset containing images and labels
+            processed_data_path: Path to save the processed dataset
+            test_size: Proportion of data to use for testing
+            val_size: Proportion of remaining data to use for validation
         """
-        with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
+        self.raw_data_path = raw_data_path
+        self.processed_data_path = processed_data_path
+        self.test_size = test_size
+        self.val_size = val_size
         
-        self.raw_data_dir = Path(self.config['paths']['raw_data']) / "detection_dataset"
-        self.processed_dir = Path(self.config['paths']['processed_data']) / "detection"
-        self.splitting_dir = Path("data/splitting/detection_split")
-        self.image_size = self.config['datasets']['detection']['image_size']
-        
-        # Create directories for YOLOv8 standard format (images and labels separated)
-        # Structure: images/{train,val,test} and labels/{train,val,test}
-        for split in ['train', 'val', 'test']:
-            (self.processed_dir / 'images' / split).mkdir(parents=True, exist_ok=True)
-            (self.processed_dir / 'labels' / split).mkdir(parents=True, exist_ok=True)
-        self.splitting_dir.mkdir(parents=True, exist_ok=True)
-    
-    def is_processed(self) -> bool:
-        """Check if data has already been preprocessed."""
-        # Check if processed directories have images (YOLOv8 standard format)
-        for split in ['train', 'val', 'test']:
-            images_dir = self.processed_dir / 'images' / split
-            if not images_dir.exists():
-                return False
-            # Check if there are any images
-            images = list(images_dir.glob('*.jpg')) + list(images_dir.glob('*.png'))
-            if len(images) == 0:
-                return False
-        
-        return True
-    
-    def process(self):
-        """Main preprocessing pipeline with letterbox resize."""
-        print("=" * 80)
-        print("DETECTION DATASET PREPROCESSING (WITH LETTERBOX)")
-        print("=" * 80)
-        
-        # Step 1: Load all data using streaming approach
-        print("\n[1/6] Loading all data (streaming mode)...")
-        all_images, all_annotations = self._load_all_data_streaming()
-        print(f"  Loaded {len(all_images)} total images")
-        gc.collect()
-        
-        # Step 2: Split dataset
-        print("\n[2/6] Splitting dataset (70/20/10)...")
-        splits = self._split_dataset(all_images, all_annotations)
-        
-        # Clear original data to free memory
-        del all_images, all_annotations
-        gc.collect()
-        
-        # Step 3: Save split metadata
-        print("\n[3/6] Saving split metadata...")
-        self._save_splits(splits)
-        
-        # Step 4-6: Process and save each split as individual image files
-        processed_info = {}
-        
-        # Process each split (using 'val' to match _split_dataset output)
-        for idx, split_name in enumerate(['train', 'val', 'test']):
-            step_num = idx + 4  # Steps 4, 5, 6
-            print(f"\n[{step_num}/6] Processing {split_name} split...")
-            
-            # Get data from splits dictionary
-            image_paths = splits[f'{split_name}_images']
-            annotations = splits[f'{split_name}_annotations']
-            
-            # Process and save images
-            saved_count = self._preprocess_and_save_split(
-                image_paths, 
-                annotations, 
-                split_name  # Use 'val' for directory naming (YOLOv8 standard)
-            )
-            
-            processed_info[split_name] = {
-                'count': saved_count,
-                'image_dir': str(self.processed_dir / 'images' / split_name),
-                'annotation_dir': str(self.processed_dir / 'labels' / split_name)
+        # Create directory structure (YOLOv8 standard: images/split, labels/split)
+        self.directories = {
+            'train': {
+                'images': os.path.join(self.processed_data_path, 'images', 'train'),
+                'labels': os.path.join(self.processed_data_path, 'labels', 'train')
+            },
+            'val': {
+                'images': os.path.join(self.processed_data_path, 'images', 'val'),
+                'labels': os.path.join(self.processed_data_path, 'labels', 'val')
+            },
+            'test': {
+                'images': os.path.join(self.processed_data_path, 'images', 'test'),
+                'labels': os.path.join(self.processed_data_path, 'labels', 'test')
             }
-            
-            print(f"    Saved {saved_count} images to {self.processed_dir / 'images' / split_name}")
-            
-            # Clear memory after each split
-            del splits[f'{split_name}_images'], splits[f'{split_name}_annotations']
-            gc.collect()
+        }
         
-        # Save overall metadata
-        print("\n[6/6] Saving processing metadata...")
-        self._save_processing_metadata(processed_info)
+        # Create all required directories
+        for dirs in self.directories.values():
+            os.makedirs(dirs['images'], exist_ok=True)
+            os.makedirs(dirs['labels'], exist_ok=True)
+    
+    def _find_image_label_pairs(self):
+        """
+        Find all image-label pairs in the raw data directory.
         
-        print("\n" + "=" * 80)
-        print("PREPROCESSING COMPLETE")
-        print("=" * 80)
-        print(f"Processed images: {self.processed_dir}")
-        print(f"Split metadata: {self.splitting_dir}")
-        total_samples = sum(info['count'] for info in processed_info.values())
-        print(f"Total samples: {total_samples}")
-        for split_name, info in processed_info.items():
-            print(f"  {split_name.capitalize()}: {info['count']} images")
+        Returns:
+            List of tuples (image_path, label_path) for valid pairs
+        """
+        image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']
+        image_dir = os.path.join(self.raw_data_path, 'train_img')  # Training images
+        label_dir = os.path.join(self.raw_data_path, 'train_label')  # Training labels
+        
+        # Collect all training pairs
+        pairs = self._collect_pairs(image_dir, label_dir, image_extensions)
+        
+        # Add validation data if it exists separately
+        val_image_dir = os.path.join(self.raw_data_path, 'val_img')
+        val_label_dir = os.path.join(self.raw_data_path, 'val_label')
+        
+        if os.path.exists(val_image_dir) and os.path.exists(val_label_dir):
+            val_pairs = self._collect_pairs(val_image_dir, val_label_dir, image_extensions)
+            pairs.extend(val_pairs)
+        
+        print(f"Found {len(pairs)} valid image-label pairs")
+        return pairs
+    
+    def _collect_pairs(self, image_dir, label_dir, image_extensions):
+        """
+        Helper method to collect image-label pairs from specific directories.
+        """
+        if not os.path.exists(image_dir) or not os.path.exists(label_dir):
+            return []
 
-    def _load_all_data_streaming(self) -> Tuple[List[str], List[List]]:
-        """
-        Load all image paths and annotations using streaming approach.
-        Processes train and val sequentially to minimize memory usage.
+        image_files = []
+        for ext in image_extensions:
+            image_files.extend([f for f in os.listdir(image_dir) if f.lower().endswith(ext)])
         
-        Returns:
-            Tuple of (image_paths, annotations)
-        """
-        all_images = []
-        all_annotations = []
+        pairs = []
+        for img_file in image_files:
+            base_name = os.path.splitext(img_file)[0]
+            label_file = base_name + '.txt'
+            img_path = os.path.join(image_dir, img_file)
+            label_path = os.path.join(label_dir, label_file)
+            
+            # Only add pairs where both image and label exist and label is not empty
+            if os.path.exists(label_path) and os.path.getsize(label_path) > 0:
+                pairs.append((img_path, label_path))
         
-        # Process train split
-        print("  Loading train data...")
-        train_images, train_annotations = self._load_split_data_generator('train')
-        all_images.extend(train_images)
-        all_annotations.extend(train_annotations)
-        print(f"    Train: {len(train_images)} images")
-        
-        # Clear train data from memory
-        del train_images, train_annotations
-        gc.collect()
-        
-        # Process val split
-        print("  Loading val data...")
-        val_images, val_annotations = self._load_split_data_generator('val')
-        all_images.extend(val_images)
-        all_annotations.extend(val_annotations)
-        print(f"    Val: {len(val_images)} images")
-        
-        # Clear val data from memory
-        del val_images, val_annotations
-        gc.collect()
-        
-        return all_images, all_annotations
+        return pairs
     
-    def _load_split_data_generator(self, split: str) -> Tuple[List[str], List[List]]:
+    def _split_data(self, pairs):
         """
-        Load image paths and annotations for a specific split (train or val).
+        Split the data into train/val/test sets.
         
         Args:
-            split: 'train' or 'val'
+            pairs: List of tuples (image_path, label_path)
             
         Returns:
-            Tuple of (image_paths, annotations)
-            annotations is a list where each element is a list of bboxes for that image
+            Dictionary with keys 'train', 'val', 'test' containing the split pairs
         """
-        img_dir = self.raw_data_dir / f"{split}_img"
-        label_dir = self.raw_data_dir / f"{split}_label"
-        
-        if not img_dir.exists():
-            raise FileNotFoundError(f"Image directory not found: {img_dir}")
-        if not label_dir.exists():
-            raise FileNotFoundError(f"Label directory not found: {label_dir}")
-        
-        images = []
-        annotations = []
-        
-        # Get all label files
-        label_files = sorted(label_dir.glob("*.txt"))
-        
-        for label_file in tqdm(label_files, desc=f"Loading {split} data"):
-            # Find corresponding image file
-            img_file = img_dir / f"{label_file.stem}.jpg"
-            if not img_file.exists():
-                # Try other extensions
-                img_file = img_dir / f"{label_file.stem}.jpeg"
-                if not img_file.exists():
-                    img_file = img_dir / f"{label_file.stem}.png"
-                    if not img_file.exists():
-                        continue
-            
-            # Read YOLO annotations
-            bboxes = []
-            with open(label_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    parts = line.split()
-                    if len(parts) == 5:
-                        class_id = int(parts[0])
-                        x_center = float(parts[1])
-                        y_center = float(parts[2])
-                        width = float(parts[3])
-                        height = float(parts[4])
-                        bboxes.append([class_id, x_center, y_center, width, height])
-            
-            images.append(str(img_file))
-            annotations.append(bboxes)
-        
-        return images, annotations
-    
-    def _split_dataset(self, images: List[str], annotations: List[List]) -> Dict[str, List]:
-        """
-        Split dataset respecting original train/val structure.
-        
-        Strategy (Option A):
-        - Original val_img (230 images) → valid set (kept as-is)
-        - Original train_img (5924 images) → split into train (90%) and test (10%)
-          - train: ~5332 images
-          - test: ~592 images
-        
-        This preserves the original professional train/val split while creating
-        a proper test set from the training data.
-        
-        Args:
-            images: List of all image paths (train first, then val)
-            annotations: List of all annotations
-            
-        Returns:
-            Dictionary with split datasets
-        """
-        from sklearn.model_selection import train_test_split
-        
-        # Separate train and val based on path
-        train_images = []
-        train_annotations = []
-        val_images = []
-        val_annotations = []
-        
-        for img_path, ann in zip(images, annotations):
-            if '/train_img/' in img_path or '\\train_img\\' in img_path:
-                train_images.append(img_path)
-                train_annotations.append(ann)
-            elif '/val_img/' in img_path or '\\val_img\\' in img_path:
-                val_images.append(img_path)
-                val_annotations.append(ann)
-        
-        print(f"  Original train: {len(train_images)} images")
-        print(f"  Original val: {len(val_images)} images")
-        
-        # Use original val as validation set (no splitting)
-        X_val = val_images
-        y_val = val_annotations
-        
-        # Split original train into train (90%) and test (10%)
-        test_ratio = 0.10  # 10% for test
-        X_train, X_test, y_train, y_test = train_test_split(
-            train_images, 
-            train_annotations, 
-            test_size=test_ratio, 
+        # First, split into train+val and test
+        train_val_pairs, test_pairs = train_test_split(
+            pairs, 
+            test_size=self.test_size, 
             random_state=42
         )
         
-        print(f"  After splitting:")
-        print(f"    Train: {len(X_train)} images (from original train)")
-        print(f"    Valid: {len(X_val)} images (original val, kept as-is)")
-        print(f"    Test: {len(X_test)} images (from original train)")
-        
-        return {
-            'train_images': X_train,
-            'train_annotations': y_train,
-            'val_images': X_val,
-            'val_annotations': y_val,
-            'test_images': X_test,
-            'test_annotations': y_test
-        }
-    
-    def _save_splits(self, splits: Dict[str, List]):
-        """
-        Save split metadata as JSON files to data/splitting/detection_split/.
-        
-        Note: For detection dataset, images are preprocessed and saved with new names.
-        The split files record which original images belong to each split for reference.
-        
-        Args:
-            splits: Dictionary containing split data
-        """
-        # Save each split as JSON with original image paths (for reference only)
-        for split_name in ['train', 'val', 'test']:
-            # Determine source of this split
-            if split_name == 'val':
-                source_info = "Original val_img folder (kept as-is)"
-            elif split_name == 'train':
-                source_info = "From original train_img folder (90% split)"
-            else:  # test
-                source_info = "From original train_img folder (10% split)"
-            
-            split_data = {
-                'original_image_paths': splits[f'{split_name}_images'],
-                'num_samples': len(splits[f'{split_name}_images']),
-                'source': source_info,
-                'note': f'Original raw image paths. Processed images are in data/processed/detection/images/{split_name}/'
-            }
-            output_file = self.splitting_dir / f"{split_name}_split.json"
-            with open(output_file, 'w') as f:
-                json.dump(split_data, f, indent=2)
-            print(f"  Saved {split_name} split: {len(split_data['original_image_paths'])} images ({source_info})")
-        
-        # Save overall metadata
-        metadata = {
-            'dataset_type': 'detection',
-            'total_samples': len(splits['train_images']) + len(splits['val_images']) + len(splits['test_images']),
-            'split_strategy': 'Option A: Preserve original val, split train into train/test',
-            'splits': {
-                'train': {
-                    'count': len(splits['train_images']),
-                    'source': 'train_img (90%)'
-                },
-                'val': {
-                    'count': len(splits['val_images']),
-                    'source': 'val_img (100%, kept as-is)'
-                },
-                'test': {
-                    'count': len(splits['test_images']),
-                    'source': 'train_img (10%)'
-                }
-            },
-            'format': 'YOLO',
-            'preprocessing': 'letterbox_resize',
-            'target_size': self.image_size,
-            'note': 'Images are preprocessed with letterbox resize and saved as individual files. Use dataset.yaml for training.'
-        }
-        
-        metadata_file = self.splitting_dir / "metadata.json"
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2)
-        print(f"  Saved metadata")
-    
-    def _letterbox_resize(self, img: np.ndarray, bboxes: List, target_size: int = 640) -> Tuple[np.ndarray, List]:
-        """
-        Resize image with letterbox (preserve aspect ratio + padding).
-        
-        Args:
-            img: Original image (H, W, C)
-            bboxes: YOLO format bboxes [[class, x_c, y_c, w, h], ...]
-            target_size: Target size (default 640)
-        
-        Returns:
-            Resized image and adjusted bboxes
-        """
-        h, w = img.shape[:2]
-        
-        # Calculate scale ratio (keep aspect ratio)
-        scale = min(target_size / w, target_size / h)
-        
-        # Resize
-        new_w, new_h = int(w * scale), int(h * scale)
-        img_resized = cv2.resize(img, (new_w, new_h))
-        
-        # Calculate padding
-        pad_w = (target_size - new_w) / 2
-        pad_h = (target_size - new_h) / 2
-        
-        # Add padding (gray color for YOLO: 114, 114, 114)
-        top, bottom = int(round(pad_h - 0.1)), int(round(pad_h + 0.1))
-        left, right = int(round(pad_w - 0.1)), int(round(pad_w + 0.1))
-        img_padded = cv2.copyMakeBorder(
-            img_resized, top, bottom, left, right,
-            cv2.BORDER_CONSTANT, value=[114, 114, 114]
+        # Then, split train+val into train and val
+        train_pairs, val_pairs = train_test_split(
+            train_val_pairs,
+            test_size=self.val_size,
+            random_state=42
         )
         
-        # Adjust bounding boxes
-        adjusted_bboxes = []
-        for bbox in bboxes:
-            class_id, x_c, y_c, bw, bh = bbox
-            
-            # Scale coordinates
-            x_c_new = x_c * scale
-            y_c_new = y_c * scale
-            bw_new = bw * scale
-            bh_new = bh * scale
-            
-            # Add padding offset and normalize to padded image size
-            x_c_final = (x_c_new + pad_w) / target_size
-            y_c_final = (y_c_new + pad_h) / target_size
-            bw_final = bw_new / target_size
-            bh_final = bh_new / target_size
-            
-            adjusted_bboxes.append([class_id, x_c_final, y_c_final, bw_final, bh_final])
-        
-        return img_padded, adjusted_bboxes
+        return {
+            'train': train_pairs,
+            'val': val_pairs,
+            'test': test_pairs
+        }
     
-    def _preprocess_and_save_split(self, images: List[str], annotations: List[List], split_name: str) -> int:
+    def preprocess(self):
         """
-        Preprocess images using letterbox resize and save as individual files.
-        Processes in batches to avoid memory issues.
-        
-        YOLOv8 standard structure:
-        images/
-        ├── train/
-        │   ├── img_00000.jpg
-        │   └── img_00001.jpg
-        labels/
-        ├── train/
-            ├── img_00000.txt
-            └── img_00001.txt
-        
-        Args:
-            images: List of image paths
-            annotations: List of bounding box lists
-            split_name: 'train', 'val', or 'test'
-            
-        Returns:
-            Number of successfully processed images
+        Performs the preprocessing by copying images and labels to the appropriate directories.
         """
-        # YOLOv8 standard format: separate images and labels directories
-        output_img_dir = self.processed_dir / 'images' / split_name
-        output_ann_dir = self.processed_dir / 'labels' / split_name
+        # Find all valid image-label pairs
+        all_pairs = self._find_image_label_pairs()
         
-        n_images = len(images)
-        batch_size = 100  # Process 100 images at a time
+        if len(all_pairs) == 0:
+            raise ValueError("No valid image-label pairs found in the raw data directory.")
         
-        n_batches = (n_images + batch_size - 1) // batch_size
-        print(f"  Processing {n_images} images in {n_batches} batches...")
+        # Split the data
+        split_data = self._split_data(all_pairs)
         
-        saved_count = 0
-        failed_images = []  # Track failed images
-        
-        for batch_idx in range(n_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min(start_idx + batch_size, n_images)
+        # Copy files to appropriate directories
+        for split_name, pairs in split_data.items():
+            print(f"Processing {split_name} data ({len(pairs)} pairs)...")
             
-            for i in tqdm(range(start_idx, end_idx), desc=f"  Batch {batch_idx+1}/{n_batches}", leave=False):
-                img_path = images[i]
-                bboxes = annotations[i]
+            for img_path, label_path in pairs:
+                # Copy image
+                img_filename = os.path.basename(img_path)
+                new_img_path = os.path.join(self.directories[split_name]['images'], img_filename)
+                shutil.copy2(img_path, new_img_path)
                 
-                try:
-                    # Suppress OpenCV warnings by redirecting stderr
-                    import os
-                    old_stderr = os.dup(2)  # Save original stderr
-                    devnull = os.open(os.devnull, os.O_WRONLY)
-                    os.dup2(devnull, 2)  # Redirect stderr to /dev/null
-                    os.close(devnull)
-                    
-                    try:
-                        img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
-                    finally:
-                        # Restore stderr
-                        os.dup2(old_stderr, 2)
-                        os.close(old_stderr)
-                    
-                    if img is None or img.size == 0:
-                        failed_images.append(img_path)
-                        continue
-                    
-                    # Apply letterbox resize
-                    img_processed, bboxes_processed = self._letterbox_resize(
-                        img, bboxes, self.image_size
-                    )
-                    
-                    # Generate output filename
-                    img_filename = f"img_{saved_count:05d}.jpg"
-                    ann_filename = f"img_{saved_count:05d}.txt"
-                    
-                    # Save processed image
-                    output_img_path = output_img_dir / img_filename
-                    cv2.imwrite(str(output_img_path), img_processed)
-                    
-                    # Save annotations in YOLO format
-                    output_ann_path = output_ann_dir / ann_filename
-                    with open(output_ann_path, 'w') as f:
-                        for bbox in bboxes_processed:
-                            class_id, x_c, y_c, w, h = bbox
-                            f.write(f"{class_id} {x_c:.6f} {y_c:.6f} {w:.6f} {h:.6f}\n")
-                    
-                    saved_count += 1
-                    
-                    # Clear memory for this image
-                    del img, img_processed, bboxes_processed
-                    gc.collect()
-                    
-                except Exception as e:
-                    # Log the specific error for debugging (to file only, not console)
-                    failed_images.append(img_path)
-                    # Ensure cleanup before continuing to next image
-                    try:
-                        del img, img_processed, bboxes_processed
-                    except:
-                        pass
-                    gc.collect()
-                    continue
-            
-            # Clear batch memory
-            gc.collect()
+                # Copy label
+                label_filename = os.path.basename(label_path)
+                new_label_path = os.path.join(self.directories[split_name]['labels'], label_filename)
+                shutil.copy2(label_path, new_label_path)
         
-        # Report failed images
-        if failed_images:
-            print(f"\n  ⚠ Warning: {len(failed_images)} images failed to process:")
-            for img_path in failed_images[:10]:  # Show first 10
-                print(f"    - {img_path}")
-            if len(failed_images) > 10:
-                print(f"    ... and {len(failed_images) - 10} more")
-            
-            # Save failed images list to file
-            failed_log = self.processed_dir / f"failed_{split_name}_images.txt"
-            with open(failed_log, 'w') as f:
-                for img_path in failed_images:
-                    f.write(f"{img_path}\n")
-            print(f"  Full list saved to: {failed_log}")
+        # Generate YAML configuration file for YOLOv8
+        self._generate_yaml_config()
         
-        return saved_count
+        print(f"Preprocessing completed! Dataset saved to {self.processed_data_path}")
     
-    def _save_processing_metadata(self, processed_info: Dict):
+    def _generate_yaml_config(self):
         """
-        Save metadata about the preprocessing results.
-        
-        Args:
-            processed_info: Dictionary with processing statistics
+        Generates a YAML configuration file for YOLOv8 training.
         """
-        metadata = {
-            'dataset_type': 'detection',
-            'image_size': self.image_size,
-            'preprocessing_method': 'letterbox_resize',
-            'padding_color': [114, 114, 114],
-            'output_format': 'individual_jpeg_files',
-            'splits': {
-                split_name: {
-                    'count': info['count'],
-                    'image_directory': info['image_dir'],
-                    'annotation_directory': info['annotation_dir']
-                }
-                for split_name, info in processed_info.items()
-            },
-            'total_samples': sum(info['count'] for info in processed_info.values()),
-            'note': 'Images are saved as individual JPEG files with corresponding YOLO annotations'
+        yaml_config = {
+            'path': self.processed_data_path,
+            'train': 'images/train',
+            'val': 'images/val',
+            'test': 'images/test',
+            'nc': 1,  # Number of classes (dog)
+            'names': ['dog']  # Class names
         }
         
-        metadata_file = self.processed_dir / "metadata.json"
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2)
-        print(f"  Saved metadata to {metadata_file}")
+        yaml_path = os.path.join(self.processed_data_path, 'dataset.yaml')
+        with open(yaml_path, 'w') as f:
+            yaml.dump(yaml_config, f, default_flow_style=False)
         
-        # Generate YOLOv8 dataset configuration file
-        self._generate_yolo_dataset_config(processed_info)
-    
-    def _generate_yolo_dataset_config(self, processed_info: Dict):
-        """
-        Generate YOLOv8 dataset configuration YAML file.
-        This file is required for YOLOv8 training.
-        Uses relative paths from project root for portability across different machines.
-        
-        Args:
-            processed_info: Dictionary with processing statistics
-        """
-        # YOLOv8 dataset configuration (standard format with images/ and labels/ directories)
-        yolo_config = {
-            # Root directory path (relative to project root)
-            'path': str(self.processed_dir),  # Already relative: 'data/processed/detection'
-            'train': 'images/train',          # Relative to path
-            'val': 'images/val',              # Changed from 'valid' to 'val' for YOLOv8 compatibility
-            'test': 'images/test',            # Relative to path
-            
-            # Number of classes
-            'nc': 1,
-            
-            # Class names (dog face detection has only one class)
-            'names': ['dog_face']
-        }
-        
-        # Save as YAML file
-        config_file = self.processed_dir / "dataset.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(yolo_config, f, default_flow_style=False, sort_keys=False)
-        
-        print(f"  ✓ Generated YOLOv8 dataset config: {config_file}")
-        print(f"    Using path: {yolo_config['path']}")
-        print(f"    Classes: {yolo_config['nc']} ({yolo_config['names']})")
-
-def main():
-    """Main function to run detection dataset preprocessing."""
-    preprocessor = DetectionPreprocessor()
-    
-    if preprocessor.is_processed():
-        print("✓ Detection dataset already preprocessed.")
-        print(f"  Output directory: {preprocessor.processed_dir}")
-        print("  Auto-overwriting existing files...")
-        # Automatically proceed without asking
-    
-    try:
-        preprocessor.process()
-        print("\n✓ Preprocessing complete! You can now run experiments.")
-    except Exception as e:
-        print(f"\n✗ Error during preprocessing: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        print(f"YAML configuration saved to {yaml_path}")
 
 
+# Example usage:
 if __name__ == "__main__":
-    main()
+    # Define paths
+    raw_data_path = "data/raw/detection_dataset/"  # Path to your raw dataset
+    processed_data_path = "data/processed/detection"  # Path for processed dataset (matches exp script expectation)
+    
+    # Create preprocessor instance
+    preprocessor = DetectionPreprocessor(raw_data_path, processed_data_path)
+    
+    # Run preprocessing
+    preprocessor.preprocess()

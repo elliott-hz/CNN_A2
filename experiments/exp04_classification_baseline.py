@@ -10,7 +10,6 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.data_processing.processed_datasets_verify import verify_processed_datasets
 from src.data_processing.emotion_preprocessor import EmotionPreprocessor
 from src.models.classification_model import ResNet50Classifier, BASELINE_CLASSIFICATION_CONFIG
 from src.training.classification_trainer import ClassificationTrainer
@@ -29,16 +28,8 @@ def main():
     logger.info(f"STARTING EXPERIMENT: {experiment_name}")
     logger.info("=" * 80)
     
-    # Step 1: Verify datasets are processed
-    logger.info("\n[Step 1/5] Verifying processed datasets...")
-    if not verify_processed_datasets():
-        logger.error("Datasets not ready. Please run preprocessing first.")
-        logger.error("Run: python src/data_processing/detection_preprocessor.py")
-        logger.error("Run: python src/data_processing/emotion_preprocessor.py")
-        sys.exit(1)
-    
-    # Step 2: Load preprocessed data
-    logger.info("\n[Step 2/5] Loading preprocessed data...")
+    # Step 1: Load preprocessed data
+    logger.info("\n[Step 1/4] Loading preprocessed data...")
     preprocessor = EmotionPreprocessor()
     X_train, y_train = preprocessor.load_split('train')
     X_valid, y_valid = preprocessor.load_split('valid')
@@ -47,8 +38,8 @@ def main():
     logger.info(f"Train: {len(X_train)}, Valid: {len(X_valid)}, Test: {len(X_test)}")
     logger.info(f"Image shape: {X_train.shape[1:]}")
     
-    # Step 4: Initialize model and trainer
-    logger.info("\n[Step 4/5] Initializing model and trainer...")
+    # Step 2: Initialize model and trainer
+    logger.info("\n[Step 2/4] Initializing model and trainer...")
     
     model_config = BASELINE_CLASSIFICATION_CONFIG.copy()
     
@@ -76,8 +67,8 @@ def main():
     # Initialize trainer
     trainer = ClassificationTrainer(model_config, training_config)
     
-    # Step 5: Train model
-    logger.info("\n[Step 5/5] Training model...")
+    # Step 3: Train model
+    logger.info("\n[Step 3/4] Training model...")
     try:
         history = trainer.train(
             model=model,
@@ -96,8 +87,8 @@ def main():
         traceback.print_exc()
         return
     
-    # Evaluate model
-    logger.info("\nEvaluating model on test set...")
+    # Step 4: Evaluate model
+    logger.info("\n[Step 4/4] Evaluating model on test set...")
     # Load class names from config
     class_names = ['angry', 'happy', 'relax', 'frown', 'alert']
     evaluator = ClassificationEvaluator(class_names=class_names)

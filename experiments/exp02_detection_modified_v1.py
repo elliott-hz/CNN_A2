@@ -11,7 +11,6 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.data_processing.processed_datasets_verify import verify_processed_datasets
 from src.models.detection_model import YOLOv8Detector, MODIFIED_V1_DETECTION_CONFIG
 from src.training.detection_trainer import DetectionTrainer
 from src.evaluation.detection_evaluator import DetectionEvaluator
@@ -31,15 +30,8 @@ def main():
     logger.info(f"STARTING EXPERIMENT: {experiment_name}")
     logger.info("=" * 80)
     
-    # Step 1: Verify datasets are processed
-    logger.info("\n[Step 1/5] Verifying processed datasets...")
-    if not verify_processed_datasets():
-        logger.error("Datasets not ready. Please run preprocessing first.")
-        logger.error("Run: bash scripts/run_data_preprocessing.sh")
-        sys.exit(1)
-    
-    # Step 2: Load dataset configuration
-    logger.info("\n[Step 2/5] Loading dataset configuration...")
+    # Step 1: Load dataset configuration
+    logger.info("\n[Step 1/4] Loading dataset configuration...")
     dataset_config_path = Path("data/processed/detection/dataset.yaml")
     
     if not dataset_config_path.exists():
@@ -54,8 +46,8 @@ def main():
     logger.info(f"Dataset root: {dataset_config['path']}")
     logger.info(f"Classes: {dataset_config['nc']} ({dataset_config['names']})")
     
-    # Step 3: Initialize model and trainer
-    logger.info("\n[Step 3/5] Initializing model and trainer...")
+    # Step 2: Initialize model and trainer
+    logger.info("\n[Step 2/4] Initializing model and trainer...")
     
     # Use modified v1 configuration
     model_config = MODIFIED_V1_DETECTION_CONFIG.copy()
@@ -85,8 +77,8 @@ def main():
     # Initialize trainer
     trainer = DetectionTrainer(model_config, training_config)
     
-    # Step 4: Train model
-    logger.info("\n[Step 4/5] Training model...")
+    # Step 3: Train model
+    logger.info("\n[Step 3/4] Training model...")
     try:
         results = trainer.train(
             model=model,
@@ -104,7 +96,7 @@ def main():
         sys.exit(1)
     
     # Evaluate model
-    logger.info("\n[Step 5/5] Evaluating model on test set...")
+    logger.info("\n[Step 4/4] Evaluating model on test set...")
     
     # Reload best model weights for evaluation
     best_model_path = output_dir / "model" / "best_model.pt"

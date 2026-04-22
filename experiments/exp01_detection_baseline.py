@@ -62,14 +62,14 @@ def main():
     
     training_config = {
         'learning_rate': 0.001,
-        'batch_size': 16,
-        'epochs': 50,
+        'batch_size': 4,
+        'epochs': 1,
         'optimizer': 'adam',
         'weight_decay': 1e-4,
         'early_stopping_patience': 10,
-        'use_amp': True,
+        'use_amp': False,
         'gradient_accumulation_steps': 1,
-        'warmup_epochs': 5,
+        'warmup_epochs': 0,
         'scheduler': 'cosine'
     }
     

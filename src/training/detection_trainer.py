@@ -36,7 +36,6 @@ class DetectionTrainer:
                 - use_amp: Enable mixed precision training
                 - gradient_accumulation_steps: Steps for gradient accumulation
                 - warmup_epochs: Warmup period
-                - scheduler: Learning rate scheduler type
         """
         self.model_config = model_config
         self.training_config = training_config
@@ -51,7 +50,6 @@ class DetectionTrainer:
         self.use_amp = training_config.get('use_amp', True)
         self.grad_accum_steps = training_config.get('gradient_accumulation_steps', 1)
         self.warmup_epochs = training_config.get('warmup_epochs', 5)
-        self.scheduler_type = training_config.get('scheduler', 'cosine')
         
         # Device setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -118,7 +116,6 @@ class DetectionTrainer:
                 patience=self.patience,
                 amp=self.use_amp,
                 optimizer=self.optimizer_type.upper(),  # Pass optimizer type
-                scheduler=self.scheduler_type,          # Pass scheduler type
                 warmup_epochs=self.warmup_epochs,       # Pass warmup epochs
                 name="detection_training",
                 project=str(output_dir),

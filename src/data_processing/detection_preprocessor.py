@@ -53,10 +53,10 @@ class DetectionPreprocessor:
         self.splitting_dir = Path("data/splitting/detection_split")
         self.image_size = self.config['datasets']['detection']['image_size']
         
-        # Create directories
+        # Create directories for YOLOv8 format (images and labels in same split folder)
         for split in ['train', 'valid', 'test']:
             (self.processed_dir / split).mkdir(parents=True, exist_ok=True)
-            (self.processed_dir / 'annotations' / split).mkdir(parents=True, exist_ok=True)
+            (self.processed_dir / split / 'labels').mkdir(parents=True, exist_ok=True)
         self.splitting_dir.mkdir(parents=True, exist_ok=True)
     
     def is_processed(self) -> bool:
@@ -430,6 +430,14 @@ class DetectionPreprocessor:
         Preprocess images using letterbox resize and save as individual files.
         Processes in batches to avoid memory issues.
         
+        YOLOv8 expects this structure:
+        {split}/
+        ├── img_00000.jpg
+        ├── img_00001.jpg
+        └── labels/
+            ├── img_00000.txt
+            └── img_00001.txt
+        
         Args:
             images: List of image paths
             annotations: List of bounding box lists
@@ -439,7 +447,7 @@ class DetectionPreprocessor:
             Number of successfully processed images
         """
         output_img_dir = self.processed_dir / split_name
-        output_ann_dir = self.processed_dir / 'annotations' / split_name
+        output_ann_dir = self.processed_dir / split_name / 'labels'  # Changed: labels inside split folder
         
         n_images = len(images)
         batch_size = 100  # Process 100 images at a time

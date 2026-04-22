@@ -2,8 +2,20 @@
 Detection Dataset Subset Creator
 Creates a small subset from the processed detection dataset for quick testing.
 
-This script randomly selects N samples from each split (train/valid/test) and
+This script randomly selects N samples from each split (train/val/test) and
 copies both images and their corresponding label files to maintain data integrity.
+
+Directory Structure (YOLOv8 Standard Format):
+Input/Output:
+data/processed/detection/
+├── images/
+│   ├── train/
+│   ├── val/
+│   └── test/
+└── labels/
+    ├── train/
+    ├── val/
+    └── test/
 
 Usage:
     python src/data_processing/create_detection_subset.py \
@@ -61,16 +73,16 @@ class DetectionSubsetCreator:
         print(f"Output: {self.output_dir}")
         print(f"\nTarget samples:")
         print(f"  Train: {train_samples}")
-        print(f"  Valid: {val_samples}")
+        print(f"  Val: {val_samples}")  # Changed from Valid to Val
         print(f"  Test: {test_samples}")
         
         # Create output directory structure
         self._create_output_structure()
         
-        # Process each split
+        # Process each split (using 'val' instead of 'valid' for YOLOv8 compatibility)
         splits_config = {
             'train': train_samples,
-            'valid': val_samples,
+            'val': val_samples,      # Changed from 'valid' to 'val'
             'test': test_samples
         }
         
@@ -87,7 +99,7 @@ class DetectionSubsetCreator:
         
         # Save metadata
         print("\n[3/3] Saving subset metadata...")
-        self._save_metadata(actual_counts, {'train': train_samples, 'valid': val_samples, 'test': test_samples})
+        self._save_metadata(actual_counts, {'train': train_samples, 'val': val_samples, 'test': test_samples})
         
         print("\n" + "=" * 80)
         print("SUBSET CREATION COMPLETE")
@@ -101,11 +113,13 @@ class DetectionSubsetCreator:
         print(f"\nYou can now use this subset for quick testing!")
     
     def _create_output_structure(self):
-        """Create the output directory structure matching YOLOv8 format."""
-        for split in ['train', 'valid', 'test']:
-            (self.output_dir / split).mkdir(parents=True, exist_ok=True)
-            (self.output_dir / split / 'labels').mkdir(parents=True, exist_ok=True)
+        """Create the output directory structure matching YOLOv8 standard format."""
+        # YOLOv8 standard format: images/{train,val,test} and labels/{train,val,test}
+        for split in ['train', 'val', 'test']:  # Changed from 'valid' to 'val'
+            (self.output_dir / 'images' / split).mkdir(parents=True, exist_ok=True)
+            (self.output_dir / 'labels' / split).mkdir(parents=True, exist_ok=True)
         print(f"✓ Created output directory structure at {self.output_dir}")
+        print(f"  Structure: images/{{train,val,test}} and labels/{{train,val,test}}")
     
     def _process_split(self, split_name: str, target_count: int) -> int:
         """
@@ -118,10 +132,10 @@ class DetectionSubsetCreator:
         Returns:
             Actual number of samples copied
         """
-        input_split_dir = self.input_dir / split_name
-        input_labels_dir = input_split_dir / 'labels'
-        output_split_dir = self.output_dir / split_name
-        output_labels_dir = output_split_dir / 'labels'
+        input_split_dir = self.input_dir / 'images' / split_name  # Updated for YOLOv8 standard format
+        input_labels_dir = self.input_dir / 'labels' / split_name
+        output_split_dir = self.output_dir / 'images' / split_name
+        output_labels_dir = self.output_dir / 'labels' / split_name
         
         if not input_split_dir.exists():
             print(f"  ⚠ Warning: {input_split_dir} does not exist, skipping...")
@@ -174,9 +188,9 @@ class DetectionSubsetCreator:
         """
         yolo_config = {
             'path': str(self.output_dir),
-            'train': 'train',
-            'val': 'valid',
-            'test': 'test',
+            'train': 'images/train',      # Updated for YOLOv8 standard format
+            'val': 'images/val',          # Changed from 'valid' to 'val'
+            'test': 'images/test',
             'nc': 1,
             'names': ['dog_face']
         }

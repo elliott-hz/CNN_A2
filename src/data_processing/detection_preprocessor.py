@@ -3,7 +3,20 @@ Detection Dataset Preprocessor with Albumentations Letterbox
 Preprocesses detection dataset using letterbox resize to preserve aspect ratio.
 Saves processed images as individual files (not numpy arrays) for memory efficiency.
 
-Dataset Structure:
+Dataset Structure (YOLOv8 Standard Format):
+data/processed/detection/
+├── images/
+│   ├── train/          # Training images (*.jpg)
+│   ├── val/            # Validation images (*.jpg)
+│   └── test/           # Test images (*.jpg)
+├── labels/
+│   ├── train/          # Training labels (*.txt, YOLO format)
+│   ├── val/            # Validation labels (*.txt, YOLO format)
+│   └── test/           # Test labels (*.txt, YOLO format)
+├── dataset.yaml        # YOLOv8 configuration file
+└── metadata.json       # Processing metadata
+
+Input:
 data/raw/detection_dataset/
 ├── train_img/          # Training images (*.jpg)
 ├── train_label/        # Training labels (*.txt, YOLO format)
@@ -11,8 +24,8 @@ data/raw/detection_dataset/
 └── val_label/         # Validation labels (*.txt, YOLO format)
 
 Output:
-- Processed images saved to: data/processed/detection/{train,valid,test}/
-- Annotations saved to: data/processed/detection/annotations/{train,valid,test}/
+- Processed images saved to: data/processed/detection/images/{train,val,test}/
+- Annotations saved to: data/processed/detection/labels/{train,val,test}/
 - Split metadata saved to: data/splitting/detection_split/
 """
 
@@ -53,28 +66,26 @@ class DetectionPreprocessor:
         self.splitting_dir = Path("data/splitting/detection_split")
         self.image_size = self.config['datasets']['detection']['image_size']
         
-        # Create directories for YOLOv8 format (images and labels in same split folder)
-        for split in ['train', 'valid', 'test']:
-            (self.processed_dir / split).mkdir(parents=True, exist_ok=True)
-            (self.processed_dir / split / 'labels').mkdir(parents=True, exist_ok=True)
+        # Create directories for YOLOv8 standard format (images and labels separated)
+        # Structure: images/{train,val,test} and labels/{train,val,test}
+        for split in ['train', 'val', 'test']:
+            (self.processed_dir / 'images' / split).mkdir(parents=True, exist_ok=True)
+            (self.processed_dir / 'labels' / split).mkdir(parents=True, exist_ok=True)
         self.splitting_dir.mkdir(parents=True, exist_ok=True)
     
     def is_processed(self) -> bool:
         """Check if data has already been preprocessed."""
-        # Check if processed directories have images
-        train_dir = self.processed_dir / 'train'
-        valid_dir = self.processed_dir / 'valid'
-        test_dir = self.processed_dir / 'test'
+        # Check if processed directories have images (YOLOv8 standard format)
+        for split in ['train', 'val', 'test']:
+            images_dir = self.processed_dir / 'images' / split
+            if not images_dir.exists():
+                return False
+            # Check if there are any images
+            images = list(images_dir.glob('*.jpg')) + list(images_dir.glob('*.png'))
+            if len(images) == 0:
+                return False
         
-        if not train_dir.exists() or not valid_dir.exists() or not test_dir.exists():
-            return False
-        
-        # Check if there are any images
-        train_images = list(train_dir.glob('*.jpg'))
-        valid_images = list(valid_dir.glob('*.jpg'))
-        test_images = list(test_dir.glob('*.jpg'))
-        
-        return len(train_images) > 0 and len(valid_images) > 0 and len(test_images) > 0
+        return True
     
     def process(self):
         """Main preprocessing pipeline with letterbox resize."""
@@ -103,39 +114,32 @@ class DetectionPreprocessor:
         # Step 4-6: Process and save each split as individual image files
         processed_info = {}
         
-        # Map split names to match the keys from _split_dataset
-        split_mapping = {
-            'train': 'train',
-            'valid': 'val',  # Map 'valid' to 'val' to match _split_dataset output
-            'test': 'test'
-        }
-        
-        for idx, split_name in enumerate(['train', 'valid', 'test']):
+        # Process each split (using 'val' to match _split_dataset output)
+        for idx, split_name in enumerate(['train', 'val', 'test']):
             step_num = idx + 4  # Steps 4, 5, 6
             print(f"\n[{step_num}/6] Processing {split_name} split...")
             
-            # Get the correct key name from splits dictionary
-            split_key = split_mapping[split_name]
-            image_paths = splits[f'{split_key}_images']
-            annotations = splits[f'{split_key}_annotations']
+            # Get data from splits dictionary
+            image_paths = splits[f'{split_name}_images']
+            annotations = splits[f'{split_name}_annotations']
             
             # Process and save images
             saved_count = self._preprocess_and_save_split(
                 image_paths, 
                 annotations, 
-                split_name  # Use 'valid' for directory naming
+                split_name  # Use 'val' for directory naming (YOLOv8 standard)
             )
             
             processed_info[split_name] = {
                 'count': saved_count,
-                'image_dir': str(self.processed_dir / split_name),
-                'annotation_dir': str(self.processed_dir / 'annotations' / split_name)
+                'image_dir': str(self.processed_dir / 'images' / split_name),
+                'annotation_dir': str(self.processed_dir / 'labels' / split_name)
             }
             
-            print(f"    Saved {saved_count} images to {self.processed_dir / split_name}")
+            print(f"    Saved {saved_count} images to {self.processed_dir / 'images' / split_name}")
             
             # Clear memory after each split
-            del splits[f'{split_key}_images'], splits[f'{split_key}_annotations']
+            del splits[f'{split_name}_images'], splits[f'{split_name}_annotations']
             gc.collect()
         
         # Save overall metadata
@@ -334,7 +338,7 @@ class DetectionPreprocessor:
                 'original_image_paths': splits[f'{split_name}_images'],
                 'num_samples': len(splits[f'{split_name}_images']),
                 'source': source_info,
-                'note': f'Original raw image paths. Processed images are in data/processed/detection/{split_name if split_name != "val" else "valid"}/'
+                'note': f'Original raw image paths. Processed images are in data/processed/detection/images/{split_name}/'
             }
             output_file = self.splitting_dir / f"{split_name}_split.json"
             with open(output_file, 'w') as f:
@@ -430,24 +434,27 @@ class DetectionPreprocessor:
         Preprocess images using letterbox resize and save as individual files.
         Processes in batches to avoid memory issues.
         
-        YOLOv8 expects this structure:
-        {split}/
-        ├── img_00000.jpg
-        ├── img_00001.jpg
-        └── labels/
+        YOLOv8 standard structure:
+        images/
+        ├── train/
+        │   ├── img_00000.jpg
+        │   └── img_00001.jpg
+        labels/
+        ├── train/
             ├── img_00000.txt
             └── img_00001.txt
         
         Args:
             images: List of image paths
             annotations: List of bounding box lists
-            split_name: 'train', 'valid', or 'test'
+            split_name: 'train', 'val', or 'test'
             
         Returns:
             Number of successfully processed images
         """
-        output_img_dir = self.processed_dir / split_name
-        output_ann_dir = self.processed_dir / split_name / 'labels'  # Changed: labels inside split folder
+        # YOLOv8 standard format: separate images and labels directories
+        output_img_dir = self.processed_dir / 'images' / split_name
+        output_ann_dir = self.processed_dir / 'labels' / split_name
         
         n_images = len(images)
         batch_size = 100  # Process 100 images at a time
@@ -584,13 +591,13 @@ class DetectionPreprocessor:
         Args:
             processed_info: Dictionary with processing statistics
         """
-        # Use the path relative to project root (already stored in config)
-        # Since processed_dir is 'data/processed/detection', we can use it directly
+        # YOLOv8 dataset configuration (standard format with images/ and labels/ directories)
         yolo_config = {
+            # Root directory path (relative to project root)
             'path': str(self.processed_dir),  # Already relative: 'data/processed/detection'
-            'train': 'train',                 # Relative to path
-            'val': 'valid',                   # Relative to path
-            'test': 'test',                   # Relative to path
+            'train': 'images/train',          # Relative to path
+            'val': 'images/val',              # Changed from 'valid' to 'val' for YOLOv8 compatibility
+            'test': 'images/test',            # Relative to path
             
             # Number of classes
             'nc': 1,

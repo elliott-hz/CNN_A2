@@ -6,7 +6,9 @@ Configuration: backbone='s', input_size=640, confidence=0.4
 """
 
 import sys
+import argparse
 from pathlib import Path
+import glob # <--- Added import
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -18,15 +20,58 @@ from src.utils.logger import setup_logger
 import yaml
 
 
+def get_latest_run_dir(experiment_name):
+    """
+    Helper function to find the latest run directory for resuming.
+    """
+    base_output_dir = Path("outputs") / experiment_name
+    if not base_output_dir.exists():
+        return None
+    
+    # Find all subdirectories that look like run timestamps
+    # Assumes format: run_YYYYMMDD_HHMMSS
+    run_dirs = [d for d in base_output_dir.iterdir() if d.is_dir() and d.name.startswith("run_")]
+    
+    if not run_dirs:
+        return None
+    
+    # Sort by name (timestamp) to get the latest one
+    latest_run = sorted(run_dirs, key=lambda x: x.name)[-1]
+    return latest_run
+
+
 def main():
     """Run Experiment 03: Detection Modified V2."""
     
-    experiment_name = "exp03_detection_modified_v2"
-    logger = setup_logger(experiment_name)
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Run Experiment 03: Detection Modified V2')
+    parser.add_argument('--resume', action='store_true',
+                        help='Resume training from the latest checkpoint in the latest run directory')
     
-    logger.info("=" * 80)
-    logger.info(f"STARTING EXPERIMENT: {experiment_name}")
-    logger.info("=" * 80)
+    args = parser.parse_args()
+    
+    # Configuration flags
+    RESUME_TRAINING = args.resume
+    
+    experiment_name = "exp03_detection_modified_v2"
+    
+    # --- Key modification 1: Determine output_dir based on whether to resume ---
+    if RESUME_TRAINING:
+        output_dir = get_latest_run_dir(experiment_name)
+        if output_dir is None:
+            print(f"Error: No previous runs found for {experiment_name} to resume.")
+            sys.exit(1)
+        logger = setup_logger(experiment_name, log_file=output_dir / "logs" / "training.log") # Optional: append log
+        logger.info("=" * 80)
+        logger.info(f"RESUMING EXPERIMENT: {experiment_name}")
+        logger.info(f"Resuming from directory: {output_dir}")
+        logger.info("=" * 80)
+    else:
+        output_dir = create_experiment_dir(experiment_name)
+        logger = setup_logger(experiment_name)
+        logger.info("=" * 80)
+        logger.info(f"STARTING NEW EXPERIMENT: {experiment_name}")
+        logger.info("=" * 80)
     
     # Step 1: Load dataset configuration
     logger.info("\n[Step 1/4] Loading dataset configuration...")
@@ -49,6 +94,7 @@ def main():
     
     model_config = MODIFIED_V2_DETECTION_CONFIG.copy()
     
+    # --- Key modification 2: Training Config includes resume flag ---
     training_config = {
         'learning_rate': 0.002,   # Higher learning rate for smaller model
         'batch_size': 32,         # Larger batch size
@@ -59,13 +105,13 @@ def main():
         'use_amp': True,
         'gradient_accumulation_steps': 1,
         'warmup_epochs': 10,      # Increased to 10% of total epochs
-        'scheduler': 'step'
+        'scheduler': 'step',
+        'resume': RESUME_TRAINING  # <--- Pass resume status to Trainer
     }
     
     logger.info(f"Model config: {model_config}")
     logger.info(f"Training config: {training_config}")
     
-    output_dir = create_experiment_dir(experiment_name)
     model = YOLOv8Detector(model_config)
     trainer = DetectionTrainer(model_config, training_config)
     
@@ -76,7 +122,7 @@ def main():
             model=model,
             train_data=str(dataset_config_path),  # Pass dataset config path
             val_data=str(dataset_config_path),    # YOLO uses same config for train/val
-            output_dir=str(output_dir)
+            output_dir=str(output_dir) # <--- Key: Pass determined output_dir (new or old)
         )
         
         logger.info("Training completed!")
@@ -91,7 +137,15 @@ def main():
     logger.info("\n[Step 4/4] Evaluating model on test set...")
     
     # Reload best model weights for evaluation
-    best_model_path = output_dir / "model" / "best_model.pt"
+    # Standard Ultralytics saves to weights/best.pt, but your code might move it to model/best_model.pt
+    best_model_path = output_dir / "weights" / "best.pt" # Standard Ultralytics path
+    
+    # Fallback to your custom path if standard path doesn't exist
+    if not best_model_path.exists():
+        alt_best_path = output_dir / "model" / "best_model.pt"
+        if alt_best_path.exists():
+            best_model_path = alt_best_path
+    
     if best_model_path.exists():
         logger.info(f"Reloading best model weights from: {best_model_path}")
         from ultralytics import YOLO

@@ -129,12 +129,11 @@ def main():
     try:
         results = trainer.train(
             model=model,
-            train_data=str(dataset_config_path),  # Pass dataset config path
-            val_data=str(dataset_config_path),    # YOLO uses same config for train/val
-            output_dir=str(output_dir),  # <--- Key: Pass determined output_dir (new or old)
-            project=experiment_name,  # <--- Add project parameter
-            name="run_" + str(int(time.time())),  # <--- Add name parameter
-            exist_ok=True  # <--- Allow overwriting
+            train_data=str(dataset_config_path),
+            val_data=str(dataset_config_path),
+            output_dir=str(output_dir),
+            name="run_" + str(int(time.time())),
+            exist_ok=True
         )
         
         logger.info("Training completed successfully!")

@@ -9,7 +9,6 @@ import sys
 import argparse
 from pathlib import Path
 import glob
-import time
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -145,10 +144,9 @@ def main():
     try:
         results = trainer.train(
             model=model,
-            train_data=str(dataset_config_path),  # Pass dataset config path
-            val_data=str(dataset_config_path),    # YOLO uses same config for train/val
-            output_dir=str(output_dir),  // <--- Key: Pass determined output_dir (new or old)
-            exist_ok=True  // <-- Allow overwriting
+            train_data=str(dataset_config_path),
+            val_data=str(dataset_config_path),
+            output_dir=str(output_dir) # <--- Key: Pass determined output_dir (new or old)
         )
         
         logger.info("Training completed successfully!")

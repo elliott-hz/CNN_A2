@@ -23,15 +23,27 @@
   justify-content: center;
 }
 
-.upload-area:hover {
+.upload-area:hover:not(.loading) {
   border-color: #4CAF50;
   background-color: #f0f8f0;
+}
+
+.upload-area.loading {
+  cursor: not-allowed;
+  border-color: #2196F3;
+  background-color: #e3f2fd;
+  opacity: 0.8;
 }
 
 .upload-area.has-image {
   border-style: solid;
   border-color: #4CAF50;
   background-color: #e8f5e9;
+}
+
+.upload-area.has-image:hover:not(.loading) {
+  border-color: #66bb6a;
+  background-color: #c8e6c9;
 }
 
 .upload-placeholder {
@@ -69,53 +81,6 @@
   font-size: 0.9rem;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 8px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background-color: #f5f5f5;
-  color: #333;
-  border: 2px solid #ddd;
-}
-
-.btn-secondary:hover {
-  background-color: #e0e0e0;
-  border-color: #bbb;
-}
-
 /* Loading spinner */
 .spinner {
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -124,6 +89,13 @@
   width: 14px;
   height: 14px;
   animation: spin 0.8s linear infinite;
+}
+
+.loading-spinner {
+  border: 3px solid #e3f2fd;
+  border-top: 3px solid #2196F3;
+  width: 24px;
+  height: 24px;
 }
 
 @keyframes spin {

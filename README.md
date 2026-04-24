@@ -1168,12 +1168,13 @@ CNN_A3/
 2. **Upload an image**: 
    - Click the upload area, OR
    - Drag & drop an image file
-3. **Analyze**: Click "🚀 Detect Emotion" button
-4. **View results**: See annotated image with:
+   - **Detection starts automatically** - no button click needed!
+3. **View results**: See annotated image with:
    - Colored bounding boxes around detected dogs
    - Emotion labels at top-left of each box
    - Dog ID tags at bottom-left
    - Detailed metrics cards below
+4. **Analyze another image**: Simply click the upload area again or drag & drop a new image (previous results auto-clear)
 
 ### Supported Image Formats
 - JPEG/JPG

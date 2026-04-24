@@ -84,6 +84,7 @@ const ImageUploader = ({ onResults }) => {
     }
 
     setError(null);
+    setIsLoading(true);
     
     try {
       // Resize image if needed
@@ -94,56 +95,38 @@ const ImageUploader = ({ onResults }) => {
       });
       
       setSelectedImage(resizedFile);
+      
+      // Automatically start detection after image is loaded
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const results = await detectEmotion(resizedFile);
+          onResults(results, reader.result);
+        } catch (err) {
+          setError(err.message);
+          console.error('Detection error:', err);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      reader.readAsDataURL(resizedBlob);
     } catch (err) {
       console.error('Error resizing image:', err);
       setError('Failed to process image');
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedImage) {
-      setError('Please select an image first');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const results = await detectEmotion(selectedImage);
-      
-      // Create preview URL for the annotated display only after successful detection
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onResults(results, reader.result);
-      };
-      reader.readAsDataURL(selectedImage);
-    } catch (err) {
-      setError(err.message);
-      console.error('Detection error:', err);
-    } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    setSelectedImage(null);
-    setError(null);
-    onResults(null, null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
     }
   };
 
   return (
     <div className="image-uploader">
+      <h2>🐕 Dog Emotion Recognition</h2>
       
-      {/* Upload Area - Compact inline layout */}
+      {/* Upload Area - Compact inline layout with auto-detection */}
       <div
-        className={`upload-area ${selectedImage ? 'has-image' : ''}`}
+        className={`upload-area ${isLoading ? 'loading' : ''} ${selectedImage ? 'has-image' : ''}`}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !isLoading && fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
@@ -154,18 +137,30 @@ const ImageUploader = ({ onResults }) => {
         />
         
         <div className="upload-placeholder">
-          <div className="upload-icon">📷</div>
-          <div>
-            <p>{selectedImage ? '✅ Image ready for analysis' : 'Click or drag & drop an image'}</p>
-            {selectedImage && (
-              <p className="upload-hint">
-                📁 {selectedImage.name} • {(selectedImage.size / 1024).toFixed(1)} KB
-              </p>
-            )}
-            {!selectedImage && (
-              <p className="upload-hint">Supports JPEG, PNG (max 10MB, auto-resized to 640px)</p>
-            )}
-          </div>
+          {isLoading ? (
+            <>
+              <div className="spinner loading-spinner"></div>
+              <div>
+                <p>Analyzing image...</p>
+                <p className="upload-hint">Please wait while we detect emotions</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="upload-icon">📷</div>
+              <div>
+                <p>{selectedImage ? '✅ Analysis complete! Upload another image to continue' : 'Click or drag & drop an image'}</p>
+                {selectedImage && (
+                  <p className="upload-hint">
+                    📁 {selectedImage.name} • {(selectedImage.size / 1024).toFixed(1)} KB
+                  </p>
+                )}
+                {!selectedImage && (
+                  <p className="upload-hint">Supports JPEG, PNG (max 10MB, auto-resized to 640px)</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -173,33 +168,6 @@ const ImageUploader = ({ onResults }) => {
       {error && (
         <div className="error-message">
           ⚠️ {error}
-        </div>
-      )}
-
-      {/* Action Buttons */}
-      {selectedImage && (
-        <div className="action-buttons">
-          <button 
-            className="btn btn-primary" 
-            onClick={handleUpload}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="spinner"></div>
-                Analyzing...
-              </>
-            ) : (
-              '🚀 Detect Emotion'
-            )}
-          </button>
-          <button 
-            className="btn btn-secondary" 
-            onClick={handleReset}
-            disabled={isLoading}
-          >
-            🔄 Reset
-          </button>
         </div>
       )}
     </div>

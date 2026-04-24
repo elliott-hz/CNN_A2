@@ -25,8 +25,14 @@ function App() {
   }, []);
 
   const handleResults = (newResults, newImagePreview) => {
-    setResults(newResults);
-    setImagePreview(newImagePreview);
+    // Clear previous results when new image is being processed
+    if (!newResults && !newImagePreview) {
+      setResults(null);
+      setImagePreview(null);
+    } else {
+      setResults(newResults);
+      setImagePreview(newImagePreview);
+    }
   };
 
   return (

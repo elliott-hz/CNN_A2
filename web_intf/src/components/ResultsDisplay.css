@@ -1,0 +1,191 @@
+.results-display {
+  max-width: 1200px;
+  margin: 30px auto;
+  padding: 20px;
+}
+
+.results-display h3 {
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.result-summary {
+  text-align: center;
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+/* Annotated Image Container */
+.annotated-image-container {
+  position: relative;
+  margin: 30px auto;
+  max-width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  background-color: #f5f5f5;
+}
+
+.annotated-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.canvas-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 20px 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.canvas-loading .spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4CAF50;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px;
+}
+
+.canvas-loading p {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.no-detection {
+  text-align: center;
+  padding: 40px;
+  background-color: #fff3e0;
+  border-radius: 12px;
+  border-left: 4px solid #FF9800;
+}
+
+.no-detection p {
+  margin: 10px 0;
+  font-size: 1.2rem;
+  color: #e65100;
+}
+
+.no-detection .hint {
+  font-size: 0.95rem !important;
+  color: #f57c00 !important;
+}
+
+.detections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.detection-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.detection-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.detection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.dog-id {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.emotion-badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.detection-details {
+  margin-bottom: 20px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.value {
+  font-weight: 600;
+  color: #333;
+}
+
+.value.bbox {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #2196F3;
+}
+
+.probability-bars h4 {
+  margin: 15px 0 10px;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.prob-bar {
+  margin-bottom: 12px;
+}
+
+.prob-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: capitalize;
+}
+
+.prob-track {
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.prob-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}

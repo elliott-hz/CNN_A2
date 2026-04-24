@@ -1,0 +1,21 @@
+# Dog Emotion Recognition API Service Dependencies
+
+# Web Framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Image Processing
+Pillow>=9.5.0
+opencv-python>=4.7.0
+
+# PyTorch (install separately based on your environment)
+# CPU: pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# GPU: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# Ultralytics YOLOv8
+ultralytics>=8.0.0
+
+# Data Science
+numpy>=1.24.0,<2.0.0
+PyYAML>=6.0

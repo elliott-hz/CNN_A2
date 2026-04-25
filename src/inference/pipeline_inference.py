@@ -40,23 +40,30 @@ class PipelineInference:
         Run end-to-end inference on an image.
         
         Args:
-            image_path: Path to input image
+            image_path: Path to input image OR numpy array (BGR format)
             conf: Detection confidence threshold
             iou: NMS IoU threshold
             
         Returns:
             List of results, one per detected dog
         """
-        # Step 1: Detect dog faces
-        detections = self.detector.predict(image_path, conf=conf, iou=iou)
+        # Check if input is a numpy array or file path
+        if isinstance(image_path, np.ndarray):
+            # Input is already a numpy array (BGR format from OpenCV)
+            original_img_bgr = image_path
+            original_img_rgb = cv2.cvtColor(original_img_bgr, cv2.COLOR_BGR2RGB)
+            detections = self.detector.predict_from_array(original_img_bgr, conf=conf, iou=iou)
+        else:
+            # Input is a file path
+            detections = self.detector.predict(image_path, conf=conf, iou=iou)
+            
+            # Load original image
+            original_img_bgr = cv2.imread(image_path)
+            original_img_rgb = cv2.cvtColor(original_img_bgr, cv2.COLOR_BGR2RGB)
         
         if not detections:
             print("No dogs detected")
             return []
-        
-        # Load original image
-        original_img = cv2.imread(image_path)
-        original_img_rgb = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
         
         # Step 2: Classify emotion for each detected dog
         results = []

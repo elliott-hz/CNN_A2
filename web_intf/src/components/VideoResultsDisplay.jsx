@@ -53,8 +53,11 @@ const VideoResultsDisplay = ({ videoFile, isProcessing }) => {
     setErrorMessage('');
 
     try {
-      // Start analysis (this will take 1-2 minutes for 20s video)
-      const results = await analyzeVideo(videoFile);
+      // Start analysis with progress callback
+      const results = await analyzeVideo(videoFile, (progress, currentFrame, totalFrames) => {
+        setProgress(progress);
+        console.log(`Progress: ${progress.toFixed(1)}% (${currentFrame}/${totalFrames} frames)`);
+      });
       
       if (results.success) {
         setAnalysisResults(results);

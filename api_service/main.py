@@ -469,6 +469,209 @@ async def analyze_video(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Video analysis failed: {str(e)}")
 
 
+@app.post("/api/analyze-video-batch", response_model=VideoAnalysisResponse)
+async def analyze_video_batch(file: UploadFile = File(...), batch_size: int = 10):
+    """
+    Optimized video analysis using batch processing.
+    Extracts all frames first, then processes them in batches for maximum speed.
+    
+    Args:
+        file: Uploaded video file (MP4, WebM, AVI, max 20 seconds)
+        batch_size: Number of frames to process simultaneously (default: 10)
+        
+    Returns:
+        Analysis results with timestamps and detections
+    """
+    global pipeline
+    
+    # Check if pipeline is initialized
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Models not loaded yet. Please wait.")
+    
+    try:
+        # Validate file type
+        if not file.content_type or not file.content_type.startswith('video/'):
+            raise HTTPException(status_code=400, detail="File must be a video")
+        
+        # Read video data
+        contents = await file.read()
+        
+        # Check file size (max 50MB)
+        if len(contents) > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Video too large (max 50MB)")
+        
+        # Save to temporary file for processing
+        temp_video_path = f"{tempfile.gettempdir()}/{uuid.uuid4()}.mp4"
+        with open(temp_video_path, 'wb') as f:
+            f.write(contents)
+        
+        try:
+            print(f"\n{'='*80}")
+            print("BATCH PROCESSING MODE")
+            print(f"{'='*80}")
+            
+            # Open video with OpenCV
+            cap = cv2.VideoCapture(temp_video_path)
+            if not cap.isOpened():
+                raise HTTPException(status_code=400, detail="Failed to open video file")
+            
+            # Get video properties
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            video_duration = total_frames / fps
+            
+            # Validate video duration (max 20 seconds)
+            if video_duration > 20.0:
+                cap.release()
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Video too long ({video_duration:.1f}s). Maximum duration is 20 seconds."
+                )
+            
+            # Set sampling rate: 5 frames per second (every 200ms)
+            target_fps = 5.0
+            frame_interval = 1.0 / target_fps  # 0.2 seconds
+            
+            # Calculate which frames to sample
+            sample_interval = int(fps / target_fps) if fps > 0 else 1
+            sample_interval = max(1, sample_interval)
+            
+            print(f"Video properties: {fps}fps, {total_frames} frames, {video_duration:.2f}s duration")
+            print(f"Sampling at {target_fps}fps (every {sample_interval} frames)")
+            print(f"Batch size: {batch_size} frames")
+            
+            # STEP 1: Extract all frames into memory (fast sequential read)
+            print("\n[Step 1/3] Extracting frames from video...")
+            frames_data = []  # List of (timestamp, frame_array)
+            frame_count = 0
+            sampled_frame_count = 0
+            
+            import time
+            extract_start = time.time()
+            
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                # Only sample frames at target rate
+                if frame_count % sample_interval == 0:
+                    timestamp = sampled_frame_count * frame_interval
+                    
+                    # Stop if we exceed 20 seconds
+                    if timestamp > 20.0:
+                        break
+                    
+                    # Store frame in memory (BGR format)
+                    frames_data.append((timestamp, frame.copy()))
+                    sampled_frame_count += 1
+                
+                frame_count += 1
+            
+            cap.release()
+            extract_time = time.time() - extract_start
+            print(f"✓ Extracted {len(frames_data)} frames in {extract_time:.2f}s")
+            
+            if not frames_data:
+                return VideoAnalysisResponse(
+                    success=True,
+                    video_duration=0.0,
+                    frame_interval=frame_interval,
+                    total_frames=0,
+                    frames=[],
+                    message="No frames extracted from video"
+                )
+            
+            # STEP 2: Process frames in batches using true batch inference
+            print(f"\n[Step 2/3] Processing {len(frames_data)} frames in batches of {batch_size}...")
+            inference_start = time.time()
+            
+            frames_results = []
+            total_batches = (len(frames_data) + batch_size - 1) // batch_size
+            
+            for batch_idx in range(0, len(frames_data), batch_size):
+                batch_data = frames_data[batch_idx:batch_idx + batch_size]
+                current_batch_num = (batch_idx // batch_size) + 1
+                
+                # Extract just the frames (numpy arrays) and timestamps
+                batch_frames = [frame for (_, frame) in batch_data]
+                batch_timestamps = [ts for (ts, _) in batch_data]
+                
+                print(f"  Processing batch {current_batch_num}/{total_batches} ({len(batch_frames)} frames)...")
+                
+                try:
+                    # TRUE BATCH INFERENCE: Process all frames simultaneously!
+                    batch_results = pipeline.predict_batch(batch_frames, conf=0.5, iou=0.45)
+                    
+                    # Format results for each frame
+                    for frame_idx, (timestamp, detections) in enumerate(zip(batch_timestamps, batch_results)):
+                        detection_results = []
+                        for result in detections:
+                            detection_results.append(DetectionResult(
+                                dog_id=result['dog_id'],
+                                bbox=result['bbox'],
+                                detection_confidence=result['detection_confidence'],
+                                emotion=result['emotion'],
+                                emotion_confidence=result['emotion_confidence'],
+                                emotion_probabilities=result['emotion_probabilities']
+                            ))
+                        
+                        frames_results.append(FrameDetection(
+                            timestamp=timestamp,
+                            detections=detection_results
+                        ))
+                
+                except Exception as e:
+                    print(f"  ⚠ Error processing batch {current_batch_num}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    
+                    # Add empty detections for failed batch
+                    for timestamp, _ in batch_data:
+                        frames_results.append(FrameDetection(
+                            timestamp=timestamp,
+                            detections=[]
+                        ))
+                
+                # Allow async event loop to process other tasks
+                await asyncio.sleep(0)
+            
+            inference_time = time.time() - inference_start
+            print(f"✓ Batch inference completed in {inference_time:.2f}s")
+            print(f"  Average: {inference_time/len(frames_data)*1000:.0f}ms per frame")
+            print(f"  Speedup: ~{len(frames_data)/inference_time:.1f} frames/sec")
+            
+            # STEP 3: Return results
+            actual_duration = len(frames_results) * frame_interval
+            
+            total_time = extract_time + inference_time
+            message = f"Analyzed {len(frames_results)} frame(s) at {target_fps}fps over {actual_duration:.1f} seconds (total: {total_time:.2f}s)"
+            print(f"\n[Step 3/3] {message}")
+            print(f"{'='*80}\n")
+            
+            return VideoAnalysisResponse(
+                success=True,
+                video_duration=actual_duration,
+                frame_interval=frame_interval,
+                total_frames=len(frames_results),
+                frames=frames_results,
+                message=message
+            )
+        
+        finally:
+            # Clean up temporary video file
+            if os.path.exists(temp_video_path):
+                os.unlink(temp_video_path)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error during video analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Video analysis failed: {str(e)}")
+
+
 @app.post("/api/analyze-video-stream")
 async def analyze_video_stream(file: UploadFile = File(...)):
     """

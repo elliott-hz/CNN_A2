@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { analyzeVideo } from '../services/api';
+import { analyzeVideoBatch } from '../services/api';
 import './VideoResultsDisplay.css';
 
 const FRAME_INTERVAL = 0.2; // 200ms = 5fps
@@ -46,24 +46,38 @@ const VideoResultsDisplay = ({ videoFile, isProcessing }) => {
     }
   }, [videoLoaded]);
 
-  // Analyze the entire video file
+  // Analyze the entire video file using batch processing (FASTEST)
   const analyzeVideoFile = async () => {
     setAnalysisStatus('analyzing');
     setProgress(0);
     setErrorMessage('');
 
     try {
-      // Start analysis with progress callback
-      const results = await analyzeVideo(videoFile, (progress, currentFrame, totalFrames) => {
-        setProgress(progress);
-        console.log(`Progress: ${progress.toFixed(1)}% (${currentFrame}/${totalFrames} frames)`);
-      });
+      console.log('Starting batch processing...');
+      
+      // Use batch processing for maximum speed
+      // Simulate progress since batch endpoint doesn't stream updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 5; // Increment by 5% every 200ms
+        });
+      }, 200);
+      
+      // Start analysis (this will be much faster than streaming)
+      const results = await analyzeVideoBatch(videoFile, 10); // Batch size of 10
+      
+      clearInterval(progressInterval);
+      setProgress(100);
       
       if (results.success) {
         setAnalysisResults(results);
         setAnalysisStatus('complete');
-        setProgress(100);
         console.log(`Video analysis complete: ${results.total_frames} frames analyzed`);
+        console.log(`Message: ${results.message}`);
       } else {
         throw new Error('Analysis returned unsuccessful');
       }

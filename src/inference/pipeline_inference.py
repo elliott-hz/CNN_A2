@@ -105,6 +105,76 @@ class PipelineInference:
         
         return results
     
+    def predict_batch(self, image_arrays: list, conf: float = 0.5, iou: float = 0.45) -> List[List[Dict[str, Any]]]:
+        """
+        Run batch inference on multiple images.
+        
+        Args:
+            image_arrays: List of numpy arrays (BGR format)
+            conf: Detection confidence threshold
+            iou: NMS IoU threshold
+            
+        Returns:
+            List of result lists, one per input image
+        """
+        if not image_arrays:
+            return []
+        
+        # Step 1: Batch detection for all images
+        batch_detections = self.detector.predict_batch(image_arrays, conf=conf, iou=iou)
+        
+        # Step 2: Classify emotions for each detection
+        all_results = []
+        
+        for img_idx, (image_array, detections) in enumerate(zip(image_arrays, batch_detections)):
+            if not detections:
+                all_results.append([])
+                continue
+            
+            # Convert to RGB for classification
+            original_img_rgb = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
+            
+            img_results = []
+            for i, detection in enumerate(detections):
+                bbox = detection['bbox']
+                
+                # Crop face region with padding
+                x1, y1, x2, y2 = map(int, bbox)
+                h, w = original_img_rgb.shape[:2]
+                
+                # Add padding (10% of box size)
+                box_w = x2 - x1
+                box_h = y2 - y1
+                pad_x = int(box_w * 0.1)
+                pad_y = int(box_h * 0.1)
+                
+                x1_padded = max(0, x1 - pad_x)
+                y1_padded = max(0, y1 - pad_y)
+                x2_padded = min(w, x2 + pad_x)
+                y2_padded = min(h, y2 + pad_y)
+                
+                # Crop face
+                face_img = original_img_rgb[y1_padded:y2_padded, x1_padded:x2_padded]
+                
+                # Classify emotion
+                emotion_result = self.classifier.predict(face_img)
+                
+                # Combine results
+                result = {
+                    'dog_id': i,
+                    'bbox': bbox,
+                    'detection_confidence': detection['confidence'],
+                    'emotion': emotion_result['predicted_class'],
+                    'emotion_confidence': emotion_result['confidence'],
+                    'emotion_probabilities': emotion_result['probabilities']
+                }
+                
+                img_results.append(result)
+            
+            all_results.append(img_results)
+        
+        return all_results
+    
     def visualize(self, image_path: str, output_path: str = None, **kwargs) -> np.ndarray:
         """
         Visualize pipeline results on image.

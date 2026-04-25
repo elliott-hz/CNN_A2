@@ -55,6 +55,38 @@ class DetectionInference:
         
         return detections
     
+    def predict_batch(self, image_arrays: list, conf: float = 0.5, iou: float = 0.45) -> List[List[Dict[str, Any]]]:
+        """
+        Predict bounding boxes for multiple images in batch mode.
+        
+        Args:
+            image_arrays: List of numpy arrays in BGR format
+            conf: Confidence threshold
+            iou: NMS IoU threshold
+            
+        Returns:
+            List of detection lists, one per input image
+        """
+        # YOLOv8 supports batch inference directly
+        results = self.model(image_arrays, conf=conf, iou=iou)
+        
+        # Parse results for each image in the batch
+        all_detections = []
+        for result in results:
+            detections = []
+            boxes = result.boxes
+            if boxes is not None:
+                for i in range(len(boxes)):
+                    detection = {
+                        'bbox': boxes.xyxy[i].cpu().numpy().tolist(),
+                        'confidence': float(boxes.conf[i].cpu().numpy()),
+                        'class': int(boxes.cls[i].cpu().numpy())
+                    }
+                    detections.append(detection)
+            all_detections.append(detections)
+        
+        return all_detections
+    
     def predict_from_array(self, image_array, conf: float = 0.5, iou: float = 0.45) -> List[Dict[str, Any]]:
         """
         Predict bounding boxes from numpy array (BGR format).

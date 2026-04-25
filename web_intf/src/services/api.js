@@ -65,6 +65,48 @@ export const detectEmotionFromBase64 = async (base64Image) => {
 };
 
 /**
+ * Analyze entire video file using batch processing (FASTEST method)
+ * Extracts all frames first, then processes in batches for maximum speed
+ * @param {File} videoFile - The video file to analyze
+ * @param {number} batchSize - Number of frames to process simultaneously (default: 10)
+ * @returns {Promise<Object>} Video analysis results with all frames
+ */
+export const analyzeVideoBatch = async (videoFile, batchSize = 10) => {
+  const formData = new FormData();
+  formData.append('file', videoFile);
+  
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/analyze-video-batch?batch_size=${batchSize}`, 
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 300000, // 5 minutes timeout for video processing
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Upload progress: ${percentCompleted}%`);
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      // Server responded with error status
+      throw new Error(error.response.data.detail || 'Video analysis failed');
+    } else if (error.request) {
+      // Request was made but no response received
+      throw new Error('Cannot connect to server. Is the API running?');
+    } else {
+      // Something else happened
+      throw new Error('An error occurred during video analysis');
+    }
+  }
+};
+
+/**
  * Analyze entire video file and return frame-by-frame detections with real-time progress
  * @param {File} videoFile - The video file to analyze
  * @param {Function} onProgress - Callback function for progress updates (progress, currentFrame, totalFrames)

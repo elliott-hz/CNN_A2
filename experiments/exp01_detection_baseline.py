@@ -118,8 +118,8 @@ def main():
     # --- Key modification 2: Training Config includes resume flag ---
     training_config = {
         'learning_rate': 0.001,
-        'batch_size': 16,
-        'epochs': 150,
+        'batch_size': 24,
+        'epochs': 120,
         'optimizer': 'adam',
         'weight_decay': 1e-4,
         'early_stopping_patience': 0,

@@ -5,8 +5,9 @@ FastAPI backend for dog face detection and emotion classification
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, AsyncGenerator
 import torch
 import numpy as np
 from PIL import Image
@@ -18,6 +19,8 @@ import cv2
 import tempfile
 import os
 import uuid
+import json
+import asyncio
 
 # Add parent directory to path to import existing modules
 sys.path.append(str(Path(__file__).parent.parent))
@@ -56,6 +59,15 @@ class VideoAnalysisResponse(BaseModel):
     frame_interval: float
     total_frames: int
     frames: List[FrameDetection]
+    message: str = ""
+
+
+class ProgressUpdate(BaseModel):
+    """Progress update for streaming"""
+    progress: float  # 0-100
+    current_frame: int
+    total_frames: int
+    status: str  # "processing", "complete", "error"
     message: str = ""
 
 
@@ -455,6 +467,185 @@ async def analyze_video(file: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Video analysis failed: {str(e)}")
+
+
+@app.post("/api/analyze-video-stream")
+async def analyze_video_stream(file: UploadFile = File(...)):
+    """
+    Analyze video file with real-time progress updates via Server-Sent Events (SSE).
+    Optimized for speed - processes frames directly in memory without file I/O.
+    
+    Args:
+        file: Uploaded video file (MP4, WebM, AVI, max 20 seconds)
+        
+    Returns:
+        SSE stream with progress updates, followed by final results
+    """
+    global pipeline
+    
+    # Check if pipeline is initialized
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Models not loaded yet. Please wait.")
+    
+    async def generate_progress():
+        try:
+            # Validate file type
+            if not file.content_type or not file.content_type.startswith('video/'):
+                yield f"data: {json.dumps({'error': 'File must be a video'})}\n\n"
+                return
+            
+            # Read video data
+            contents = await file.read()
+            
+            # Check file size (max 50MB)
+            if len(contents) > 50 * 1024 * 1024:
+                yield f"data: {json.dumps({'error': 'Video too large (max 50MB)'})}\n\n"
+                return
+            
+            # Save to temporary file for processing
+            temp_video_path = f"{tempfile.gettempdir()}/{uuid.uuid4()}.mp4"
+            with open(temp_video_path, 'wb') as f:
+                f.write(contents)
+            
+            try:
+                # Open video with OpenCV
+                cap = cv2.VideoCapture(temp_video_path)
+                if not cap.isOpened():
+                    yield f"data: {json.dumps({'error': 'Failed to open video file'})}\n\n"
+                    return
+                
+                # Get video properties
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                video_duration = total_frames / fps
+                
+                # Validate video duration (max 20 seconds)
+                if video_duration > 20.0:
+                    cap.release()
+                    yield f"data: {json.dumps({'error': f'Video too long ({video_duration:.1f}s). Maximum duration is 20 seconds.'})}\n\n"
+                    return
+                
+                # Set sampling rate: 5 frames per second (every 200ms)
+                target_fps = 5.0
+                frame_interval = 1.0 / target_fps  # 0.2 seconds
+                
+                # Calculate which frames to sample
+                sample_interval = int(fps / target_fps) if fps > 0 else 1
+                sample_interval = max(1, sample_interval)
+                
+                print(f"Video properties: {fps}fps, {total_frames} frames, {video_duration:.2f}s duration")
+                print(f"Sampling at {target_fps}fps (every {sample_interval} frames)")
+                
+                # Calculate total frames to process
+                total_sampled_frames = min(int(video_duration * target_fps), 100)
+                
+                # Initialize frame analysis list
+                frames = []
+                frame_count = 0
+                sampled_frame_count = 0
+                
+                # Send initial progress
+                yield f"data: {json.dumps({'progress': 0, 'current_frame': 0, 'total_frames': total_sampled_frames, 'status': 'processing', 'message': 'Starting analysis...'})}\n\n"
+                
+                # Process frames at target sampling rate
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    
+                    # Only process frames at our target sampling rate
+                    if frame_count % sample_interval == 0:
+                        timestamp = sampled_frame_count * frame_interval
+                        
+                        # Stop if we exceed 20 seconds
+                        if timestamp > 20.0:
+                            break
+                        
+                        try:
+                            # OPTIMIZATION: Run inference directly on numpy array (no file I/O!)
+                            results = pipeline.predict(frame, conf=0.5, iou=0.45)
+                            
+                            # Format response
+                            detection_results = []
+                            for result in results:
+                                detection_results.append({
+                                    'dog_id': result['dog_id'],
+                                    'bbox': result['bbox'],
+                                    'detection_confidence': result['detection_confidence'],
+                                    'emotion': result['emotion'],
+                                    'emotion_confidence': result['emotion_confidence'],
+                                    'emotion_probabilities': result['emotion_probabilities']
+                                })
+                            
+                            # Append frame analysis to list
+                            frames.append({
+                                'timestamp': timestamp,
+                                'detections': detection_results
+                            })
+                            
+                            sampled_frame_count += 1
+                            
+                            # Calculate and send progress update
+                            progress = min(100.0, (sampled_frame_count / total_sampled_frames) * 100)
+                            progress_data = {
+                                'progress': round(progress, 1),
+                                'current_frame': sampled_frame_count,
+                                'total_frames': total_sampled_frames,
+                                'status': 'processing',
+                                'message': f'Processing frame {sampled_frame_count}/{total_sampled_frames}'
+                            }
+                            yield f"data: {json.dumps(progress_data)}\n\n"
+                            
+                            # Allow other async tasks to run
+                            await asyncio.sleep(0)
+                            
+                        except Exception as e:
+                            print(f"Error processing frame {frame_count}: {e}")
+                    
+                    frame_count += 1
+                
+                # Release video capture
+                cap.release()
+                
+                actual_duration = sampled_frame_count * frame_interval
+                
+                message = f"Analyzed {sampled_frame_count} frame(s) at {target_fps}fps over {actual_duration:.1f} seconds"
+                print(f"Analysis complete: {message}")
+                
+                # Send completion message
+                completion_data = {
+                    'progress': 100.0,
+                    'current_frame': sampled_frame_count,
+                    'total_frames': sampled_frame_count,
+                    'status': 'complete',
+                    'message': message,
+                    'success': True,
+                    'video_duration': actual_duration,
+                    'frame_interval': frame_interval,
+                    'frames': frames
+                }
+                yield f"data: {json.dumps(completion_data)}\n\n"
+            
+            finally:
+                # Clean up temporary video file
+                if os.path.exists(temp_video_path):
+                    os.unlink(temp_video_path)
+        
+        except Exception as e:
+            print(f"Error during video analysis: {e}")
+            import traceback
+            traceback.print_exc()
+            error_data = {
+                'progress': 0,
+                'current_frame': 0,
+                'total_frames': 0,
+                'status': 'error',
+                'message': f'Video analysis failed: {str(e)}'
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+    
+    return StreamingResponse(generate_progress(), media_type="text/event-stream")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -65,35 +65,73 @@ export const detectEmotionFromBase64 = async (base64Image) => {
 };
 
 /**
- * Analyze entire video file and return frame-by-frame detections
+ * Analyze entire video file and return frame-by-frame detections with real-time progress
  * @param {File} videoFile - The video file to analyze
+ * @param {Function} onProgress - Callback function for progress updates (progress, currentFrame, totalFrames)
  * @returns {Promise<Object>} Video analysis results with all frames
  */
-export const analyzeVideo = async (videoFile) => {
-  const formData = new FormData();
-  formData.append('file', videoFile);
-
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/analyze-video`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 300000, // 5 minutes timeout for video processing
-    });
+export const analyzeVideo = async (videoFile, onProgress = null) => {
+  return new Promise((resolve, reject) => {
+    // Create EventSource for SSE
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}/api/analyze-video-stream`, true);
     
-    return response.data;
-  } catch (error) {
-    if (error.response) {
-      // Server responded with error status
-      throw new Error(error.response.data.detail || 'Video analysis failed');
-    } else if (error.request) {
-      // Request was made but no response received
-      throw new Error('Cannot connect to server. Is the API running?');
-    } else {
-      // Something else happened
-      throw new Error('An error occurred during video analysis');
-    }
-  }
+    let fullResponse = '';
+    
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          try {
+            const finalData = JSON.parse(fullResponse);
+            resolve(finalData);
+          } catch (e) {
+            reject(new Error('Failed to parse final response'));
+          }
+        } else {
+          reject(new Error(`Request failed with status ${xhr.status}`));
+        }
+      }
+    };
+    
+    // Handle streaming data
+    let lastEventId = 0;
+    xhr.onprogress = function() {
+      const newText = xhr.responseText.slice(lastEventId);
+      const lines = newText.split('\n\n');
+      
+      lines.forEach(line => {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            
+            // Check for error
+            if (data.error) {
+              reject(new Error(data.error));
+              return;
+            }
+            
+            // Call progress callback if provided
+            if (onProgress && data.status === 'processing') {
+              onProgress(data.progress, data.current_frame, data.total_frames);
+            }
+            
+            // Store latest response
+            fullResponse = line.slice(6);
+            lastEventId = xhr.responseText.length - line.length;
+            
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        }
+      });
+    };
+    
+    // Create FormData and send
+    const formData = new FormData();
+    formData.append('file', videoFile);
+    
+    xhr.send(formData);
+  });
 };
 
 /**

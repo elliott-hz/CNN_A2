@@ -55,6 +55,36 @@ class DetectionInference:
         
         return detections
     
+    def predict_from_array(self, image_array, conf: float = 0.5, iou: float = 0.45) -> List[Dict[str, Any]]:
+        """
+        Predict bounding boxes from numpy array (BGR format).
+        
+        Args:
+            image_array: Numpy array in BGR format (from OpenCV)
+            conf: Confidence threshold
+            iou: NMS IoU threshold
+            
+        Returns:
+            List of detections with bbox and confidence
+        """
+        # Run inference directly on numpy array
+        results = self.model(image_array, conf=conf, iou=iou)
+        
+        # Parse results
+        detections = []
+        for result in results:
+            boxes = result.boxes
+            if boxes is not None:
+                for i in range(len(boxes)):
+                    detection = {
+                        'bbox': boxes.xyxy[i].cpu().numpy().tolist(),  # [x1, y1, x2, y2]
+                        'confidence': float(boxes.conf[i].cpu().numpy()),
+                        'class': int(boxes.cls[i].cpu().numpy())
+                    }
+                    detections.append(detection)
+        
+        return detections
+    
     def visualize(self, image_path: str, output_path: str = None, **kwargs):
         """
         Visualize detection results on image.

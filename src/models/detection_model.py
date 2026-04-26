@@ -1,12 +1,15 @@
 """
 Detection Model Definition
-Single YOLOv8Detector class with configurable parameters for different variants
+Supports YOLOv8, Faster R-CNN, and SSD models
 """
 
 import torch
 import torch.nn as nn
 from ultralytics import YOLO
-from typing import Dict, Any
+from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, ssd300_vgg16
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.ssd import SSDClassificationHead, SSDLiteClassificationHead
+from typing import Dict, Any, List, Tuple
 
 
 class YOLOv8Detector(nn.Module):
@@ -156,26 +159,227 @@ class YOLOv8Detector(nn.Module):
                     self.model.model.iou = value
 
 
-def create_detection_model(config: Dict[str, Any]) -> YOLOv8Detector:
+class FasterRCNNDetector(nn.Module):
+    """
+    Faster R-CNN detector with ResNet50+FPN backbone.
+    
+    Two-stage detection model with high accuracy.
+    """
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize Faster R-CNN detector.
+        
+        Args:
+            config: Dictionary with model configuration parameters
+                - num_classes: Number of detection classes (including background)
+                - pretrained: Whether to use pretrained backbone (default True)
+                - min_size: Minimum image size for resizing (default 800)
+                - max_size: Maximum image size for resizing (default 1333)
+        """
+        super(FasterRCNNDetector, self).__init__()
+        
+        self.config = config
+        self.num_classes = config.get('num_classes', 2)  # 1 class + background
+        self.pretrained = config.get('pretrained', True)
+        self.min_size = config.get('min_size', 800)
+        self.max_size = config.get('max_size', 1333)
+        
+        # Load pretrained Faster R-CNN model
+        self.model = fasterrcnn_resnet50_fpn_v2(
+            pretrained=self.pretrained,
+            progress=True,
+            weights_backbone=None if not self.pretrained else "DEFAULT"
+        )
+        
+        # Replace the box predictor for custom number of classes
+        in_features = self.model.roi_heads.box_predictor.cls_score.in_features
+        self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, self.num_classes)
+        
+        # Update transform parameters
+        self.model.transform.min_size = (self.min_size,)
+        self.model.transform.max_size = self.max_size
+    
+    def forward(self, images: List[torch.Tensor], targets: List[Dict[str, torch.Tensor]] = None):
+        """
+        Forward pass through the model.
+        
+        Args:
+            images: List of input tensors
+            targets: List of target dictionaries (only during training)
+            
+        Returns:
+            During training: dict with losses
+            During inference: list of detections
+        """
+        return self.model(images, targets)
+    
+    def save(self, save_path: str):
+        """
+        Save the model.
+        
+        Args:
+            save_path: Path to save the model
+        """
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'config': self.config
+        }, save_path)
+    
+    def load(self, load_path: str):
+        """
+        Load model weights.
+        
+        Args:
+            load_path: Path to load the model from
+        """
+        checkpoint = torch.load(load_path, map_location='cpu')
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+
+class SSDDetector(nn.Module):
+    """
+    SSD (Single Shot Detector) with VGG16 backbone.
+    
+    Single-stage detection model optimized for speed.
+    """
+    
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize SSD detector.
+        
+        Args:
+            config: Dictionary with model configuration parameters
+                - num_classes: Number of detection classes (including background)
+                - pretrained: Whether to use pretrained backbone (default True)
+                - min_size: Minimum image size (default 300)
+                - max_size: Maximum image size (default 300)
+        """
+        super(SSDDetector, self).__init__()
+        
+        self.config = config
+        self.num_classes = config.get('num_classes', 2)  # 1 class + background
+        self.pretrained = config.get('pretrained', True)
+        self.min_size = config.get('min_size', 300)
+        self.max_size = config.get('max_size', 300)
+        
+        # Load pretrained SSD model
+        self.model = ssd300_vgg16(
+            pretrained=self.pretrained,
+            progress=True,
+            weights_backbone=None if not self.pretrained else "DEFAULT"
+        )
+        
+        # Replace the classification head for custom number of classes
+        # SSD has multiple heads at different scales
+        in_channels = 512  # VGG16 output channels
+        
+        # Get anchor generator to determine number of anchors per location
+        num_anchors = self.model.anchor_generator.num_anchors_per_location()[0]
+        
+        # Replace classification and regression heads
+        from torchvision.models.detection.ssd import SSDClassificationHead, SSDRegressionHead
+        
+        self.model.classification_head = SSDClassificationHead(
+            in_channels=in_channels,
+            num_anchors=num_anchors,
+            num_classes=self.num_classes
+        )
+        
+        self.model.regression_head = SSDRegressionHead(
+            in_channels=in_channels,
+            num_anchors=num_anchors
+        )
+        
+        # Update transform parameters
+        self.model.transform.min_size = (self.min_size,)
+        self.model.transform.max_size = self.max_size
+    
+    def forward(self, images: List[torch.Tensor], targets: List[Dict[str, torch.Tensor]] = None):
+        """
+        Forward pass through the model.
+        
+        Args:
+            images: List of input tensors
+            targets: List of target dictionaries (only during training)
+            
+        Returns:
+            During training: dict with losses
+            During inference: list of detections
+        """
+        return self.model(images, targets)
+    
+    def save(self, save_path: str):
+        """
+        Save the model.
+        
+        Args:
+            save_path: Path to save the model
+        """
+        torch.save({
+            'model_state_dict': self.model.state_dict(),
+            'config': self.config
+        }, save_path)
+    
+    def load(self, load_path: str):
+        """
+        Load model weights.
+        
+        Args:
+            load_path: Path to load the model from
+        """
+        checkpoint = torch.load(load_path, map_location='cpu')
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+
+def create_detection_model(config: Dict[str, Any]) -> nn.Module:
     """
     Factory function to create detection model instance.
     
     Args:
-        config: Model configuration dictionary
+        config: Model configuration dictionary with 'model_type' key
+            - model_type: 'yolov8', 'faster_rcnn', or 'ssd'
+            - Other parameters depend on model type
         
     Returns:
-        YOLOv8Detector instance
+        Detection model instance
     """
-    return YOLOv8Detector(config)
+    model_type = config.get('model_type', 'yolov8')
+    
+    if model_type == 'yolov8':
+        return YOLOv8Detector(config)
+    elif model_type == 'faster_rcnn':
+        return FasterRCNNDetector(config)
+    elif model_type == 'ssd':
+        return SSDDetector(config)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
 
 
 # Example configurations for different experiment variants
 BASELINE_DETECTION_CONFIG = {
+    'model_type': 'yolov8',
     'backbone': 'm',  # Medium model
     'input_size': 640,
     'confidence_threshold': 0.5,
     'nms_iou_threshold': 0.45,
     'pretrained': True
+}
+
+FASTER_RCNN_CONFIG = {
+    'model_type': 'faster_rcnn',
+    'num_classes': 2,  # 1 class + background
+    'pretrained': True,
+    'min_size': 800,
+    'max_size': 1333
+}
+
+SSD_CONFIG = {
+    'model_type': 'ssd',
+    'num_classes': 2,  # 1 class + background
+    'pretrained': True,
+    'min_size': 300,
+    'max_size': 300
 }
 
 MODIFIED_V1_DETECTION_CONFIG = {

@@ -232,6 +232,62 @@ def _validate(self, model, val_loader):
 
 ---
 
+### Issue 4: Invalid Bounding Boxes in Dataset
+**Problem**: `AssertionError: All bounding boxes should have positive height and width. Found invalid box [40.92, 190.74, 41.19, 190.74]`
+
+**Root Cause**: The COCO dataset contains annotations with **zero-width or zero-height bounding boxes**. This happens when:
+- `xmax == xmin` (width = 0)
+- `ymax == ymin` (height = 0)
+- Annotation errors in the original dataset
+
+**Example Invalid Box**:
+```python
+bbox = [40.92, 190.74, 0.27, 0.0]  # [x, y, width, height]
+# width = 0.27 (very small but positive)
+# height = 0.0 (INVALID!)
+```
+
+**Why Torchvision Rejects These**:
+Torchvision detection models have strict validation:
+```python
+# In torchvision/models/detection/ssd.py
+torch._assert(
+    (boxes[:, 3] > boxes[:, 1]).all() and (boxes[:, 2] > boxes[:, 0]).all(),
+    "All bounding boxes should have positive height and width"
+)
+```
+
+**Solution**: Filter invalid boxes during data loading:
+```python
+for ann in anns:
+    bbox = ann['bbox']  # [x, y, width, height]
+    x1, y1, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
+    x2, y2 = x1 + w, y1 + h
+    
+    # Filter out invalid boxes
+    if w > 0 and h > 0 and x2 > x1 and y2 > y1:
+        boxes.append([x1, y1, x2, y2])
+        labels.append(ann['category_id'])
+        areas.append(ann.get('area', w * h))
+```
+
+**Validation Rules**:
+1. ✅ Width must be positive: `w > 0`
+2. ✅ Height must be positive: `h > 0`
+3. ✅ x2 must be greater than x1: `x2 > x1`
+4. ✅ y2 must be greater than y1: `y2 > y1`
+
+**Impact**:
+- Removes invalid annotations from training/validation
+- Prevents runtime errors in Torchvision models
+- Improves data quality
+- May slightly reduce dataset size (removes bad annotations)
+
+**Files Modified**: `src/training/torchvision_detection_trainer.py`
+- `DetectionDataset.__getitem__()` method
+
+---
+
 ## 📊 Model Configurations
 
 ### Exp01: YOLOv8 Medium
@@ -250,6 +306,8 @@ Training:
 - Epochs: 120
 - Optimizer: Adam
 - Weight decay: 1e-4
+
+Data Format: **YOLO** (txt labels + dataset.yaml)
 ```
 
 ### Exp02: Faster R-CNN
@@ -268,6 +326,8 @@ Training:
 - Optimizer: SGD + Momentum
 - Weight decay: 5e-4
 - Gradient accumulation: 4 steps (effective batch = 16)
+
+Data Format: **COCO JSON** (instances_train.json, instances_val.json)
 ```
 
 ### Exp03: SSD
@@ -286,7 +346,41 @@ Training:
 - Optimizer: SGD + Momentum
 - Weight decay: 5e-4
 - Gradient accumulation: 1 step (no accumulation)
+
+Data Format: **VOC XML** (demonstrates format flexibility)
 ```
+
+---
+
+## 🎯 Data Format Design Decision
+
+### Why Different Formats?
+
+**Exp01 (YOLOv8)**: Uses **YOLO format**
+- Required by Ultralytics framework
+- Simple txt files with normalized coordinates
+- Fast loading and parsing
+
+**Exp02 (Faster R-CNN)**: Uses **COCO JSON format**
+- Torchvision's preferred format
+- Single file contains all annotations
+- Rich metadata support (area, iscrowd, etc.)
+- Industry standard for detection benchmarks
+
+**Exp03 (SSD)**: Uses **VOC XML format**
+- Demonstrates framework flexibility
+- Shows DetectionDataset supports multiple formats
+- Traditional format still widely used
+- Validates data conversion pipeline
+
+### Key Insight
+
+All three experiments use the **same underlying images and splits**, just different annotation formats:
+- Same train/val/test split
+- Same image files
+- Same bounding box coordinates (just different representation)
+
+This ensures **fair comparison** while demonstrating **format compatibility**.
 
 ---
 

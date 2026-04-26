@@ -184,8 +184,9 @@ def main():
     try:
         metrics = evaluator.evaluate(
             model=model,
-            test_data=str(dataset_config_path),  # Pass dataset config path
-            output_dir=str(output_dir)
+            test_dataset=str(dataset_config_path),  # Pass dataset config path
+            output_dir=str(output_dir),
+            model_type='yolov8'
         )
         
         # Generate report
@@ -195,7 +196,7 @@ def main():
         logger.info("EXPERIMENT COMPLETED SUCCESSFULLY")
         logger.info("=" * 80)
         logger.info(f"Results saved to: {output_dir}")
-        logger.info(f"Metrics: {metrics}")
+        logger.info(f"Metrics: mAP@0.5={metrics['mAP50']:.4f}, mAP@0.5:0.95={metrics['mAP50_95']:.4f}")
         
     except Exception as e:
         logger.error(f"Evaluation failed: {e}")

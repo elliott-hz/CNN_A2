@@ -317,8 +317,16 @@ class TorchvisionDetectionTrainer:
             # Forward pass
             if scaler is not None:
                 with torch.cuda.amp.autocast():
-                    loss_dict = model(images, targets)
-                    losses = sum(loss for loss in loss_dict.values())
+                    loss_dict_or_list = model(images, targets)
+                    
+                    # Handle both dict and list return types
+                    if isinstance(loss_dict_or_list, dict):
+                        losses = sum(loss for loss in loss_dict_or_list.values())
+                    elif isinstance(loss_dict_or_list, (list, tuple)):
+                        losses = sum(loss_dict_or_list)
+                    else:
+                        losses = loss_dict_or_list
+                    
                     losses = losses / self.grad_accum_steps
                 
                 # Backward pass
@@ -330,8 +338,16 @@ class TorchvisionDetectionTrainer:
                     scaler.update()
                     optimizer.zero_grad()
             else:
-                loss_dict = model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
+                loss_dict_or_list = model(images, targets)
+                
+                # Handle both dict and list return types
+                if isinstance(loss_dict_or_list, dict):
+                    losses = sum(loss for loss in loss_dict_or_list.values())
+                elif isinstance(loss_dict_or_list, (list, tuple)):
+                    losses = sum(loss_dict_or_list)
+                else:
+                    losses = loss_dict_or_list
+                
                 losses = losses / self.grad_accum_steps
                 
                 losses.backward()
@@ -357,15 +373,22 @@ class TorchvisionDetectionTrainer:
                 images = [img.to(self.device) for img in images]
                 targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
                 
-                loss_dict = model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
+                loss_dict_or_list = model(images, targets)
+                
+                # Handle both dict and list return types
+                if isinstance(loss_dict_or_list, dict):
+                    losses = sum(loss for loss in loss_dict_or_list.values())
+                elif isinstance(loss_dict_or_list, (list, tuple)):
+                    losses = sum(loss_dict_or_list)
+                else:
+                    losses = loss_dict_or_list
                 
                 total_loss += losses.item()
                 num_batches += 1
         
         avg_loss = total_loss / num_batches if num_batches > 0 else 0
         return {'loss': avg_loss}
-    
+
     def _log_training_history(self, log_dir: Path):
         """Save training history to CSV."""
         csv_path = log_dir / "training_log.csv"

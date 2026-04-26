@@ -134,16 +134,19 @@ def main():
     
     # Training configuration optimized for AlexNet
     training_config = {
-        'learning_rate': 0.001,       # Higher LR for simpler model
+        'learning_rate': 0.01,        # Higher initial LR for SGD (10x increase)
         'batch_size': 64,             # Larger batch size (AlexNet is lighter)
-        'epochs': 120,                 # Same as other experiments for fair comparison
+        'epochs': 200,                # Increased from 120 to allow longer training
         'optimizer': 'sgd',           # SGD with momentum (traditional for AlexNet)
-        'weight_decay': 1e-4,
-        'early_stopping_patience': 15, # Early stopping enabled
+        'momentum': 0.9,              # Explicit momentum for SGD
+        'weight_decay': 5e-4,         # Stronger L2 regularization (5x increase)
+        'early_stopping_patience': 30, # Increased patience to avoid premature stopping
         'use_amp': True,              # Mixed precision training
         'gradient_accumulation_steps': 1,
         'label_smoothing': 0.1,
-        'class_weighting': True
+        'class_weighting': True,
+        'lr_decay_factor': 0.5,       # Gentler decay (was implicit 0.7 in trainer)
+        'lr_decay_interval': 40       # Decay every 40 epochs instead of 20
     }
     
     logger.info(f"Model config: {model_config}")

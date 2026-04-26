@@ -125,6 +125,10 @@ class ClassificationTrainer:
         self.label_smoothing = training_config.get('label_smoothing', 0.1)
         self.use_class_weighting = training_config.get('class_weighting', True)
         
+        # Learning rate decay configuration (optional, with defaults for backward compatibility)
+        self.lr_decay_factor = training_config.get('lr_decay_factor', 0.7)
+        self.lr_decay_interval = training_config.get('lr_decay_interval', 20)
+        
         # Device setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Using device: {self.device}")
@@ -506,12 +510,17 @@ class ClassificationTrainer:
             val_loss: Current validation loss
             epoch: Current epoch
         """
-        # Cosine annealing with warm restarts - more gradual decay
-        # Only apply in Phase 2 (fine-tuning) to avoid aggressive early decay
-        if epoch > 0 and epoch % 20 == 0:  # Changed from 10 to 20 for slower decay
+        # Configurable learning rate decay
+        lr_decay_factor = getattr(self, 'lr_decay_factor', 0.7)  # Default to 0.7 for backward compatibility
+        lr_decay_interval = getattr(self, 'lr_decay_interval', 20)  # Default to 20 for backward compatibility
+        
+        # Only apply decay after warmup period (first 10 epochs)
+        if epoch >= 10 and epoch > 0 and epoch % lr_decay_interval == 0:
             for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.7  # Changed from 0.5 to 0.7 for gentler decay
-            print(f"  Learning rate reduced to {optimizer.param_groups[0]['lr']:.6f}")
+                old_lr = param_group['lr']
+                new_lr = old_lr * lr_decay_factor
+                param_group['lr'] = new_lr
+            print(f"  Learning rate reduced from {old_lr:.6f} to {new_lr:.6f}")
     
     def _save_training_log(self, log_dir: Path):
         """

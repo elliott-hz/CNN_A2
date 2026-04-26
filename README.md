@@ -400,30 +400,59 @@ The project includes 6 experiments divided into two categories:
 - **Configuration**: backbone='s', input_size=640, confidence=0.4
 - **Purpose**: Test smaller model for faster inference
 
-### 7.2 Classification Experiments (Exp04-06)
+### 7.2 Classification Experiments (Exp04-06) - **UPDATED v2.0**
 
-#### Exp04: Classification Baseline ([`exp04_classification_baseline.py`](experiments/exp04_classification_baseline.py))
+All three classification experiments use the **same dataset and preprocessing pipeline** for fair comparison:
+- **Dataset**: Dog Emotion Dataset (~9,325 images, 5 classes)
+- **Preprocessing**: Images resized to 224×224, normalized to [0,1]
+- **Splits**: Train/Val/Test (70/20/10) with stratification
+- **Training**: 120 epochs, mixed precision (AMP), early stopping patience=15
+
+#### Exp04: ResNet50 Baseline ([`exp04_classification_baseline.py`](experiments/exp04_classification_baseline.py))
 - **Model**: ResNet50 with partial freezing
-- **Configuration**: dropout=0.5, freeze_backbone=True
-- **Purpose**: Establish baseline performance for emotion classification
+- **Architecture**: 50-layer residual network with skip connections
+- **Parameters**: ~25.6M total
+- **Configuration**: 
+  - dropout=0.5, pretrained=True, freeze_backbone=True
+  - Two-phase training: frozen (10 epochs) → fine-tune (110 epochs)
+  - LR: 0.0005 (frozen), 0.00005 (fine-tune)
+  - Optimizer: Adam, weight_decay=5e-4
+- **Purpose**: Establish strong baseline with modern architecture
 
-#### Exp05: Classification Modified V1 ([`exp05_classification_modified_v1.py`](experiments/exp05_classification_modified_v1.py))
-- **Model**: ResNet50 with additional layers
-- **Configuration**: dropout=0.7, additional_fc_layers=True, pretrained=True
-- **Purpose**: Test model with additional fully connected layers
+#### Exp05: AlexNet ([`exp05_classification_AlexNet.py`](experiments/exp05_classification_AlexNet.py)) ✨ NEW
+- **Model**: AlexNet (classic CNN from 2012)
+- **Architecture**: 5 conv layers + 3 FC layers
+- **Parameters**: ~60M total (larger due to FC layers)
+- **Configuration**:
+  - dropout=0.5, pretrained=True, freeze_backbone=True
+  - Two-phase training: frozen (10 epochs) → fine-tune (110 epochs)
+  - LR: 0.001 (frozen), 0.0001 (fine-tune)
+  - Optimizer: SGD with momentum=0.9, weight_decay=1e-4
+  - Batch size: 64 (larger due to lighter backbone)
+- **Purpose**: Compare classic architecture vs modern ResNet/GoogLeNet
 
-#### Exp06: Classification Modified V2 ([`exp06_classification_modified_v2.py`](experiments/exp06_classification_modified_v2.py))
-- **Model**: ResNet50 without freezing
-- **Configuration**: dropout=0.3, freeze_backbone=False, all layers trainable
-- **Purpose**: Test fine-tuning of the entire model
+#### Exp06: GoogLeNet/Inception v1 ([`exp06_classification_GoogLeNet.py`](experiments/exp06_classification_GoogLeNet.py)) ✨ NEW
+- **Model**: GoogLeNet with auxiliary classifiers
+- **Architecture**: Inception modules with parallel convolutions
+- **Parameters**: ~7M total (most efficient!)
+- **Configuration**:
+  - dropout=0.5, pretrained=True, freeze_backbone=True, use_auxiliary=True
+  - Two-phase training: frozen (10 epochs) → fine-tune (110 epochs)
+  - Auxiliary classifiers weighted at 0.3 each during training
+  - LR: 0.001 (frozen), 0.0001 (fine-tune)
+  - Optimizer: Adam, weight_decay=1e-4
+  - Batch size: 32
+- **Purpose**: Test efficiency-focused architecture with multi-loss training
+- **Implementation Note**: Manually extracts features before final FC layer to avoid dimension mismatch (1024-dim features → custom classifier)
 
-### Common Training Configuration
-All experiments use the following enhanced training configuration:
-- **Epochs**: 120 (increased from initial values)
-- **Early stopping**: Patience of 15 epochs (12.5% of total epochs)
-- **Mixed precision**: Enabled (use_amp=True) for faster training and reduced memory usage
-- **Label smoothing**: 0.05-0.1 depending on experiment
-- **Class weighting**: Enabled to handle potential imbalances
+### Comparison Summary
+
+| Experiment | Model | Parameters | Architecture Era | Key Feature |
+|------------|-------|------------|------------------|-------------|
+| **Exp04** | ResNet50 | ~25.6M | 2015 (Modern) | Skip connections, deep network |
+| **Exp05** | AlexNet | ~60M | 2012 (Classic) | Simple, large FC layers |
+| **Exp06** | GoogLeNet | ~7M | 2014 (Efficient) | Inception modules, auxiliary loss |
+```
 
 ---
 
@@ -879,8 +908,8 @@ Edit [`config.yaml`](config.yaml) for project-wide defaults.
 | **Exp02** | Detection | YOLOv8 | Modified v1 | Larger model (backbone='l', size=1280) |
 | **Exp03** | Detection | YOLOv8 | Modified v2 | Smaller model + custom anchors |
 | **Exp04** | Classification | ResNet50 | Baseline | Default params (dropout=0.5, partial freeze) |
-| **Exp05** | Classification | ResNet50 | Modified v1 | Higher dropout + additional FC layers |
-| **Exp06** | Classification | ResNet50 | Modified v2 | Lower dropout + no freeze |
+| **Exp05** | Classification | AlexNet | Classic CNN | 5 conv + 3 FC layers, SGD optimizer |
+| **Exp06** | Classification | GoogLeNet | Efficient | Inception modules, auxiliary classifiers |
 
 
 ### 7.2 Running Experiments

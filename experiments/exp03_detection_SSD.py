@@ -209,11 +209,21 @@ def main():
         logger.info("=" * 80)
         logger.info(f"mAP@0.5: {map_metrics['map50']:.4f}")
         logger.info(f"mAP@0.5:0.95: {map_metrics['map50_95']:.4f}")
+        logger.info(f"Precision: {map_metrics['precision']:.4f}")
+        logger.info(f"Recall: {map_metrics['recall']:.4f}")
+        logger.info(f"True Positives: {map_metrics['true_positives']}")
+        logger.info(f"False Positives: {map_metrics['false_positives']}")
+        logger.info(f"False Negatives: {map_metrics['false_negatives']}")
         
         # Save evaluation results
         eval_results = {
             'test_map50': map_metrics['map50'],
             'test_map50_95': map_metrics['map50_95'],
+            'test_precision': map_metrics['precision'],
+            'test_recall': map_metrics['recall'],
+            'test_true_positives': map_metrics['true_positives'],
+            'test_false_positives': map_metrics['false_positives'],
+            'test_false_negatives': map_metrics['false_negatives'],
             'best_train_map50': trainer.best_map50,
             'best_epoch': trainer.best_epoch
         }

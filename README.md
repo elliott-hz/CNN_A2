@@ -90,15 +90,21 @@ bash scripts/inference_demo.sh
 
 ## 📊 Experiment Overview
 
-The project includes **4 main experiments**:
+The project includes **6 main experiments** covering both detection and classification:
 
-### Detection (Exp01)
+### Detection Experiments (Exp01-03) - Architecture Comparison
 
-| Experiment | Model | Purpose |
-|------------|-------|---------|
-| Exp01 | YOLOv8 (Medium) | Dog face detection baseline |
+| Experiment | Model | Architecture | Parameters | Key Feature |
+|------------|-------|--------------|------------|-------------|
+| Exp01 | YOLOv8 (Medium) | Single-stage | ~25.9M | Fast inference, balanced accuracy |
+| Exp02 | Faster R-CNN | Two-stage | ~41M | Higher accuracy, ResNet50+FPN |
+| Exp03 | SSD (VGG16) | Single-stage multi-scale | ~26M | Moderate speed, good for small objects |
 
-### Classification (Exp04-06)
+**Detection Dataset**: Dog Face Detection Dataset  
+**Training**: All models trained ≥100 epochs with mixed precision (AMP)  
+**Comparison**: Speed vs accuracy trade-offs across different detection paradigms
+
+### Classification Experiments (Exp04-06) - CNN Architecture Comparison
 
 | Experiment | Model | Parameters | Key Feature |
 |------------|-------|------------|-------------|
@@ -106,7 +112,13 @@ The project includes **4 main experiments**:
 | Exp05 | AlexNet | ~60M | Classic CNN architecture |
 | Exp06 | GoogLeNet | ~7M | Efficient inception modules |
 
-**Detailed configurations and comparisons**: See [CLASSIFICATION_TRAINING.md](CLASSIFICATION_TRAINING.md) and [DETECTION_TRAINING.md](DETECTION_TRAINING.md)
+**Classification Dataset**: Dog Emotion Dataset (5 classes: alert, angry, frown, happy, relax)  
+**Training**: Transfer learning with frozen backbone + fine-tuning  
+**Comparison**: Performance across different CNN eras (2012-2015)
+
+**Detailed configurations and comparisons**: 
+- See [DETECTION_TRAINING.md](DETECTION_TRAINING.md) for detection experiments
+- See [CLASSIFICATION_TRAINING.md](CLASSIFICATION_TRAINING.md) for classification experiments
 
 ---
 

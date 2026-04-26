@@ -502,24 +502,27 @@ class GoogLeNetClassifier(nn.Module):
             Classification logits (or tuple with auxiliary outputs during training)
         """
         # Manually extract features from GoogLeNet backbone
-        # We need to replicate the forward pass but stop before the final FC layer
+        # Note: GoogLeNet uses BasicConv2d which includes BN internally
         
         # GoogLeNet structure:
-        # conv1 -> bn1 -> relu -> maxpool1
-        # conv2 -> bn2 -> relu -> maxpool2
+        # conv1 (includes BN) -> relu -> maxpool1
+        # conv2 (includes BN) -> relu -> maxpool2
+        # conv3 (includes BN) -> relu -> maxpool3
         # inception3a -> inception3b -> maxpool3
         # inception4a -> inception4b -> inception4c -> inception4d -> inception4e -> maxpool4
         # inception5a -> inception5b -> avgpool -> dropout -> fc
         
         x = self.backbone.conv1(x)
-        x = self.backbone.bn1(x)
-        x = self.backbone.relu(x)
+        x = self.backbone.relu(x)  # conv1 already includes BN
         x = self.backbone.maxpool1(x)
         
         x = self.backbone.conv2(x)
-        x = self.backbone.bn2(x)
-        x = self.backbone.relu(x)
+        x = self.backbone.relu(x)  # conv2 already includes BN
         x = self.backbone.maxpool2(x)
+        
+        x = self.backbone.conv3(x)
+        x = self.backbone.relu(x)  # conv3 already includes BN
+        x = self.backbone.maxpool3(x)
         
         x = self.backbone.inception3a(x)
         x = self.backbone.inception3b(x)
@@ -552,6 +555,10 @@ class GoogLeNetClassifier(nn.Module):
         # Global average pooling
         x = self.backbone.avgpool(x)
         x = torch.flatten(x, 1)  # Shape: (batch_size, 1024)
+        
+        # Apply dropout before classifier (GoogLeNet has dropout before fc)
+        if hasattr(self.backbone, 'dropout'):
+            x = self.backbone.dropout(x)
         
         # Apply custom classifier
         main_logits = self.classifier(x)

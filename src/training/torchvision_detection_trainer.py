@@ -141,7 +141,7 @@ class TorchvisionDetectionTrainer:
         
         # CSV logger
         csv_path = logs_dir / "training_log.csv"
-        csv_fields = ['epoch', 'train_loss', 'val_map50', 'val_map50_95', 'lr']
+        csv_fields = ['epoch', 'train_loss', 'val_map50', 'val_map50_95', 'precision', 'recall', 'true_positives', 'false_positives', 'false_negatives', 'lr']
         with open(csv_path, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(csv_fields)
@@ -183,6 +183,11 @@ class TorchvisionDetectionTrainer:
                     f"{epoch_loss:.4f}",
                     f"{val_metrics['map50']:.4f}",
                     f"{val_metrics['map50_95']:.4f}",
+                    f"{val_metrics['precision']:.4f}",
+                    f"{val_metrics['recall']:.4f}",
+                    val_metrics['true_positives'],
+                    val_metrics['false_positives'],
+                    val_metrics['false_negatives'],
                     f"{current_lr:.6f}"
                 ])
             
@@ -191,6 +196,9 @@ class TorchvisionDetectionTrainer:
             print(f"  Train Loss: {epoch_loss:.4f}")
             print(f"  Val mAP@0.5: {val_metrics['map50']:.4f}")
             print(f"  Val mAP@0.5:0.95: {val_metrics['map50_95']:.4f}")
+            print(f"  Precision: {val_metrics['precision']:.4f}")
+            print(f"  Recall: {val_metrics['recall']:.4f}")
+            print(f"  TP/FP/FN: {val_metrics['true_positives']}/{val_metrics['false_positives']}/{val_metrics['false_negatives']}")
             print(f"  Learning Rate: {current_lr:.6f}")
             
             # Check for best model
@@ -381,7 +389,12 @@ class TorchvisionDetectionTrainer:
         
         return {
             'map50': float(map50),
-            'map50_95': float(map50_95)
+            'map50_95': float(map50_95),
+            'precision': float(precision),
+            'recall': float(recall),
+            'true_positives': true_positives,
+            'false_positives': false_positives,
+            'false_negatives': false_negatives
         }
     
     def _compute_iou(self, box1, box2):

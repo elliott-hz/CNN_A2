@@ -72,21 +72,58 @@ image = F.to_tensor(image)
 
 ---
 
-### Issue 2: Loss Format Compatibility
+### Issue 2: Loss Format Compatibility (Part 1)
 **Problem**: `AttributeError: 'list' object has no attribute 'values'`
 
 **Root Cause**: SSD model returns losses as list, but code assumed dict format
 
 **Solution**: Added type checking to handle both formats:
 ```python
-loss_dict_or_list = model(images, targets)
+loss_output = model(images, targets)
 
-if isinstance(loss_dict_or_list, dict):
-    losses = sum(loss for loss in loss_dict_or_list.values())
-elif isinstance(loss_dict_or_list, (list, tuple)):
-    losses = sum(loss_dict_or_list)
+if isinstance(loss_output, dict):
+    losses = sum(loss for loss in loss_output.values())
+elif isinstance(loss_output, (list, tuple)):
+    losses = sum(loss_output)
 else:
-    losses = loss_dict_or_list
+    losses = loss_output
+```
+
+**Files Modified**: `src/training/torchvision_detection_trainer.py`
+
+---
+
+### Issue 3: Loss Format Compatibility (Part 2 - Nested Dicts)
+**Problem**: `TypeError: unsupported operand type(s) for +: 'int' and 'dict'`
+
+**Root Cause**: SSD model returns a **list of dictionaries**, not a list of tensors. The previous fix only handled flat lists.
+
+**Actual SSD Return Format**:
+```python
+# SSD returns: [{'loss_cls': ..., 'loss_loc': ...}, {...}, ...]
+# Not: [tensor1, tensor2, ...]
+```
+
+**Solution**: Enhanced type checking to handle nested structures:
+```python
+loss_output = model(images, targets)
+
+if isinstance(loss_output, dict):
+    # Faster R-CNN style: {'loss_classifier': ..., 'loss_box_reg': ...}
+    losses = sum(loss for loss in loss_output.values())
+elif isinstance(loss_output, (list, tuple)):
+    if len(loss_output) > 0 and isinstance(loss_output[0], dict):
+        # SSD style: list of dicts
+        losses = sum(
+            sum(v for v in d.values()) 
+            for d in loss_output
+        )
+    else:
+        # List of tensors
+        losses = sum(loss_output)
+else:
+    # Single tensor
+    losses = loss_output
 ```
 
 **Files Modified**: `src/training/torchvision_detection_trainer.py`

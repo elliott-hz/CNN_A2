@@ -317,15 +317,26 @@ class TorchvisionDetectionTrainer:
             # Forward pass
             if scaler is not None:
                 with torch.cuda.amp.autocast():
-                    loss_dict_or_list = model(images, targets)
+                    loss_output = model(images, targets)
                     
-                    # Handle both dict and list return types
-                    if isinstance(loss_dict_or_list, dict):
-                        losses = sum(loss for loss in loss_dict_or_list.values())
-                    elif isinstance(loss_dict_or_list, (list, tuple)):
-                        losses = sum(loss_dict_or_list)
+                    # Handle different return types from different models
+                    if isinstance(loss_output, dict):
+                        # Faster R-CNN style: {'loss_classifier': ..., 'loss_box_reg': ...}
+                        losses = sum(loss for loss in loss_output.values())
+                    elif isinstance(loss_output, (list, tuple)):
+                        # SSD style: could be list of dicts or list of tensors
+                        if len(loss_output) > 0 and isinstance(loss_output[0], dict):
+                            # List of dicts - sum all values from all dicts
+                            losses = sum(
+                                sum(v for v in d.values()) 
+                                for d in loss_output
+                            )
+                        else:
+                            # List of tensors - direct sum
+                            losses = sum(loss_output)
                     else:
-                        losses = loss_dict_or_list
+                        # Single tensor
+                        losses = loss_output
                     
                     losses = losses / self.grad_accum_steps
                 
@@ -338,15 +349,26 @@ class TorchvisionDetectionTrainer:
                     scaler.update()
                     optimizer.zero_grad()
             else:
-                loss_dict_or_list = model(images, targets)
+                loss_output = model(images, targets)
                 
-                # Handle both dict and list return types
-                if isinstance(loss_dict_or_list, dict):
-                    losses = sum(loss for loss in loss_dict_or_list.values())
-                elif isinstance(loss_dict_or_list, (list, tuple)):
-                    losses = sum(loss_dict_or_list)
+                # Handle different return types from different models
+                if isinstance(loss_output, dict):
+                    # Faster R-CNN style
+                    losses = sum(loss for loss in loss_output.values())
+                elif isinstance(loss_output, (list, tuple)):
+                    # SSD style
+                    if len(loss_output) > 0 and isinstance(loss_output[0], dict):
+                        # List of dicts
+                        losses = sum(
+                            sum(v for v in d.values()) 
+                            for d in loss_output
+                        )
+                    else:
+                        # List of tensors
+                        losses = sum(loss_output)
                 else:
-                    losses = loss_dict_or_list
+                    # Single tensor
+                    losses = loss_output
                 
                 losses = losses / self.grad_accum_steps
                 
@@ -373,15 +395,26 @@ class TorchvisionDetectionTrainer:
                 images = [img.to(self.device) for img in images]
                 targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
                 
-                loss_dict_or_list = model(images, targets)
+                loss_output = model(images, targets)
                 
-                # Handle both dict and list return types
-                if isinstance(loss_dict_or_list, dict):
-                    losses = sum(loss for loss in loss_dict_or_list.values())
-                elif isinstance(loss_dict_or_list, (list, tuple)):
-                    losses = sum(loss_dict_or_list)
+                # Handle different return types from different models
+                if isinstance(loss_output, dict):
+                    # Faster R-CNN style
+                    losses = sum(loss for loss in loss_output.values())
+                elif isinstance(loss_output, (list, tuple)):
+                    # SSD style
+                    if len(loss_output) > 0 and isinstance(loss_output[0], dict):
+                        # List of dicts
+                        losses = sum(
+                            sum(v for v in d.values()) 
+                            for d in loss_output
+                        )
+                    else:
+                        # List of tensors
+                        losses = sum(loss_output)
                 else:
-                    losses = loss_dict_or_list
+                    # Single tensor
+                    losses = loss_output
                 
                 total_loss += losses.item()
                 num_batches += 1

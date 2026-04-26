@@ -528,22 +528,20 @@ class GoogLeNetClassifier(nn.Module):
         # Stage 3: Inception modules (stage 4) + Auxiliary classifier 1
         x = self.backbone.inception4a(x)
         
-        # Auxiliary classifier 1 output (from inception4a)
-        if hasattr(self.backbone, 'aux1') and self.training:
+        # Auxiliary classifier 1 output (from inception4a) - only if enabled and training
+        aux1_out = None
+        if self.use_auxiliary and self.training and hasattr(self.backbone, 'aux1') and self.backbone.aux1 is not None:
             aux1_out = self.backbone.aux1(x)
-        else:
-            aux1_out = None
         
         x = self.backbone.inception4b(x)
         x = self.backbone.inception4c(x)
         x = self.backbone.inception4d(x)
         
-        # Auxiliary classifier 2 output (from inception4d)
-        if hasattr(self.backbone, 'aux2') and self.training:
+        # Auxiliary classifier 2 output (from inception4d) - only if enabled and training
+        aux2_out = None
+        if self.use_auxiliary and self.training and hasattr(self.backbone, 'aux2') and self.backbone.aux2 is not None:
             aux2_out = self.backbone.aux2(x)
-        else:
-            aux2_out = None
-        
+
         x = self.backbone.inception4e(x)
         x = self.backbone.maxpool4(x)
         
@@ -563,7 +561,7 @@ class GoogLeNetClassifier(nn.Module):
         main_logits = self.classifier(x)
         
         # Return based on training mode and auxiliary usage
-        if self.training and hasattr(self.backbone, 'aux1') and aux1_out is not None:
+        if self.training and self.use_auxiliary and aux1_out is not None:
             return main_logits, aux1_out, aux2_out
         else:
             return main_logits

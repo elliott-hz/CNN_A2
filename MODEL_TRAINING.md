@@ -965,7 +965,7 @@ Focus on the following during training:
 
 ## 🐛 Bug Fixes & Troubleshooting
 
-### Issue: GaussianBlur and RandomErasing Compatibility Error
+### Issue 1: GaussianBlur and RandomErasing Compatibility Error
 
 **Date**: 2026-04-26  
 **Error Message**: 
@@ -1015,6 +1015,65 @@ tensor_img = self.transform_tensor(tensor_img) if self.transform_tensor else ten
 **Impact**: All three classification experiments (exp04, exp05, exp06) now run without errors.
 
 **Verification**: Tested successfully on GPU environment with full dataset.
+
+---
+
+### Issue 2: GoogLeNet Auxiliary Classifiers TypeError
+
+**Date**: 2026-04-26  
+**Error Message**:
+```
+TypeError: 'NoneType' object is not callable
+```
+
+**Affected Experiment**: Exp06 GoogLeNet only (ResNet50 and AlexNet work fine)
+
+**Root Cause**:
+- Configuration set `use_auxiliary=False` to disable auxiliary classifiers
+- However, [GoogLeNetClassifier.forward](file:///Users/elliott/vscode_workplace/CNN_A3/src/models/classification_model.py#L520-L567) method still attempted to call `self.backbone.aux1(x)` and `self.backbone.aux2(x)`
+- When `use_auxiliary=False`, these auxiliary classifiers are not replaced and remain as original PyTorch implementations or None
+- The check `hasattr(self.backbone, 'aux1')` returns True even when aux is None, leading to calling None as a function
+
+**Why Only GoogLeNet?**:
+- ResNet50 and AlexNet don't have auxiliary classifier mechanisms
+- Only GoogLeNet architecture includes auxiliary classifiers for multi-loss training
+
+**Solution Implemented**:
+Modified [`src/models/classification_model.py`](file:///Users/elliott/vscode_workplace/CNN_A3/src/models/classification_model.py) - [GoogLeNetClassifier.forward](file:///Users/elliott/vscode_workplace/CNN_A3/src/models/classification_model.py#L520-L567) method:
+
+1. **Enhanced auxiliary classifier checks**:
+```python
+# Before (incorrect):
+if hasattr(self.backbone, 'aux1') and self.training:
+    aux1_out = self.backbone.aux1(x)
+
+# After (correct):
+aux1_out = None
+if self.use_auxiliary and self.training and hasattr(self.backbone, 'aux1') and self.backbone.aux1 is not None:
+    aux1_out = self.backbone.aux1(x)
+```
+
+2. **Fixed return value logic**:
+```python
+# Before:
+if self.training and hasattr(self.backbone, 'aux1') and aux1_out is not None:
+    return main_logits, aux1_out, aux2_out
+
+# After:
+if self.training and self.use_auxiliary and aux1_out is not None:
+    return main_logits, aux1_out, aux2_out
+else:
+    return main_logits
+```
+
+**Key Improvements**:
+- Added explicit `self.use_auxiliary` configuration check
+- Added `is not None` validation before calling auxiliary classifiers
+- Ensured return values match the training mode and configuration
+
+**Impact**: GoogLeNet experiment can now run successfully with `use_auxiliary=False` configuration.
+
+**Verification**: Ready for testing on GPU environment.
 
 ---
 

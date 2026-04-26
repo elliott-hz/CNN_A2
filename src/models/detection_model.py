@@ -8,7 +8,6 @@ import torch.nn as nn
 from ultralytics import YOLO
 from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, ssd300_vgg16
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.ssd import SSDClassificationHead, SSDLiteClassificationHead
 from typing import Dict, Any, List, Tuple
 
 

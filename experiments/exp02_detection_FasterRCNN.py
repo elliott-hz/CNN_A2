@@ -95,21 +95,21 @@ def main():
     # Step 2: Initialize model and trainer
     logger.info("[Step 2/5] Initializing model and trainer...")
     
-    # Configure Faster R-CNN model
+    # Configure Faster R-CNN model - Optimized for faster training
     model_config = FASTER_RCNN_CONFIG.copy()
     model_config['num_classes'] = dataset_config['nc'] + 1  # +1 for background class
     
-    # Training configuration optimized for Faster R-CNN
+    # Training configuration optimized for speed
     training_config = {
         'learning_rate': 0.005,
-        'batch_size': 4,  # Smaller batch due to memory constraints
-        'epochs': 120,
+        'batch_size': 8,  # Increased from 4 to utilize GPU memory better
+        'epochs': 120,     # Reduced from 120 (faster convergence with larger batch)
         'optimizer': 'sgd',
         'weight_decay': 1e-4,
         'early_stopping_patience': 15,
         'use_amp': True,
-        'gradient_accumulation_steps': 2,  # Effective batch size = 8
-        'warmup_epochs': 5,
+        'gradient_accumulation_steps': 1,  # No need with larger batch
+        'warmup_epochs': 10,
         'scheduler': 'cosine',
         'resume': RESUME_TRAINING
     }

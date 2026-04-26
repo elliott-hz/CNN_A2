@@ -372,8 +372,8 @@ FASTER_RCNN_CONFIG = {
     'model_type': 'faster_rcnn',
     'num_classes': 2,  # 1 class + background
     'pretrained': True,
-    'min_size': 800,
-    'max_size': 1333
+    'min_size': 640,
+    'max_size': 640
 }
 
 SSD_CONFIG = {

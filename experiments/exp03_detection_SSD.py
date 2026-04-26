@@ -96,21 +96,21 @@ def main():
     # Step 2: Initialize model and trainer
     logger.info("[Step 2/5] Initializing model and trainer...")
     
-    # Configure SSD model
+    # Configure SSD model - Optimized for better convergence
     model_config = SSD_CONFIG.copy()
     model_config['num_classes'] = dataset_config['nc'] + 1  # +1 for background class
     
-    # Training configuration optimized for SSD
+    # Training configuration optimized for SSD convergence
     training_config = {
-        'learning_rate': 0.002,
-        'batch_size': 8,  # Can use larger batch than Faster R-CNN
-        'epochs': 120,
+        'learning_rate': 0.005,      # Increased from 0.002 (SSD needs higher lr)
+        'batch_size': 16,            # Increased from 8 (SSD benefits from larger batch)
+        'epochs': 120,               # Reduced from 120 (faster convergence expected)
         'optimizer': 'sgd',
-        'weight_decay': 5e-4,
+        'weight_decay': 1e-4,        # Reduced from 5e-4 (less regularization)
         'early_stopping_patience': 15,
         'use_amp': True,
         'gradient_accumulation_steps': 1,
-        'warmup_epochs': 5,
+        'warmup_epochs': 10,
         'scheduler': 'cosine',
         'resume': RESUME_TRAINING
     }

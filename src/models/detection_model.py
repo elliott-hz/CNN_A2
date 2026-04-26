@@ -273,21 +273,21 @@ class SSDDetector(nn.Module):
         # SSD has multiple heads at different scales
         in_channels = 512  # VGG16 output channels
         
-        # Get anchor generator to determine number of anchors per location
-        num_anchors = self.model.anchor_generator.num_anchors_per_location()[0]
+        # Get anchor generator to determine number of anchors per location for each feature layer
+        num_anchors = self.model.anchor_generator.num_anchors_per_location()  # Returns list like [4, 6, 6, 6, 4, 4]
         
         # Replace classification and regression heads
         from torchvision.models.detection.ssd import SSDClassificationHead, SSDRegressionHead
         
         self.model.classification_head = SSDClassificationHead(
             in_channels=in_channels,
-            num_anchors=num_anchors,
+            num_anchors=num_anchors,  # Pass the full list, not just first element
             num_classes=self.num_classes
         )
         
         self.model.regression_head = SSDRegressionHead(
             in_channels=in_channels,
-            num_anchors=num_anchors
+            num_anchors=num_anchors  # Pass the full list
         )
         
         # Update transform parameters

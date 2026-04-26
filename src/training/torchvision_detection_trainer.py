@@ -191,15 +191,15 @@ class TorchvisionDetectionTrainer:
                     f"{current_lr:.6f}"
                 ])
             
-            # Print epoch summary
-            print(f"\nEpoch [{epoch}/{self.epochs}]")
-            print(f"  Train Loss: {epoch_loss:.4f}")
-            print(f"  Val mAP@0.5: {val_metrics['map50']:.4f}")
-            print(f"  Val mAP@0.5:0.95: {val_metrics['map50_95']:.4f}")
-            print(f"  Precision: {val_metrics['precision']:.4f}")
-            print(f"  Recall: {val_metrics['recall']:.4f}")
-            print(f"  TP/FP/FN: {val_metrics['true_positives']}/{val_metrics['false_positives']}/{val_metrics['false_negatives']}")
-            print(f"  Learning Rate: {current_lr:.6f}")
+            # Print epoch summary - single line format
+            print(f"\nEpoch [{epoch}/{self.epochs}] | "
+                  f"Loss: {epoch_loss:.4f} | "
+                  f"mAP@0.5: {val_metrics['map50']:.4f} | "
+                  f"mAP@0.5:0.95: {val_metrics['map50_95']:.4f} | "
+                  f"P: {val_metrics['precision']:.4f} | "
+                  f"R: {val_metrics['recall']:.4f} | "
+                  f"TP/FP/FN: {val_metrics['true_positives']}/{val_metrics['false_positives']}/{val_metrics['false_negatives']} | "
+                  f"LR: {current_lr:.6f}")
             
             # Check for best model
             if val_metrics['map50'] > self.best_map50:

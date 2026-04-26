@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import functional as F
+from PIL import Image
 from pathlib import Path
 import yaml
 import csv
@@ -105,14 +106,16 @@ class DetectionDataset(Dataset):
     def __getitem__(self, idx):
         if self.is_voc:
             img_path = self.image_files[idx]
-            image = F.to_tensor(F.pil_image_loader(str(img_path)))
+            image = Image.open(str(img_path)).convert("RGB")
+            image = F.to_tensor(image)
             target = self.annotations[str(img_path)]
         else:
             img_id = self.image_ids[idx]
             img_info = self.images_info[img_id]
             
             img_path = self.images_dir / img_info['file_name']
-            image = F.to_tensor(F.pil_image_loader(str(img_path)))
+            image = Image.open(str(img_path)).convert("RGB")
+            image = F.to_tensor(image)
             
             # Build target
             anns = self.image_to_anns.get(img_id, [])

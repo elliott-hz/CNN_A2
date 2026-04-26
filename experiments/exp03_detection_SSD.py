@@ -49,26 +49,30 @@ def main():
     # Step 1: Load dataset
     logger.info("\n[Step 1/5] Loading dataset...")
     
-    coco_annotations_path = Path("data/processed/detection_coco/annotations")
-    images_base_path = Path("data/processed/detection_coco/images")
+    # SSD can use either COCO or VOC format - here we demonstrate VOC format support
+    voc_annotations_path = Path("data/processed/detection_voc/annotations")
+    images_base_path = Path("data/processed/detection_voc/images")
     
-    # Check if COCO format data exists
-    if not coco_annotations_path.exists():
-        logger.error(f"COCO annotations not found: {coco_annotations_path}")
-        logger.error("Please run conversion first: python src/data_processing/convert_detection_format.py --format coco")
+    # Check if VOC format data exists
+    if not voc_annotations_path.exists():
+        logger.error(f"VOC annotations not found: {voc_annotations_path}")
+        logger.error("Please run conversion first: python src/data_processing/convert_detection_format.py --format voc")
         sys.exit(1)
     
-    logger.info(f"Loading COCO format dataset from: {coco_annotations_path}")
+    logger.info(f"Loading VOC format dataset from: {voc_annotations_path}")
+    logger.info("Note: SSD experiment uses VOC XML format to demonstrate format flexibility")
     
-    # Create datasets
+    # Create datasets (VOC format)
     train_dataset = DetectionDataset(
         images_dir=str(images_base_path / "train"),
-        annotations_file=str(coco_annotations_path / "instances_train.json")
+        annotations_file=str(voc_annotations_path / "train"),
+        format_type='voc'
     )
     
     val_dataset = DetectionDataset(
         images_dir=str(images_base_path / "val"),
-        annotations_file=str(coco_annotations_path / "instances_val.json")
+        annotations_file=str(voc_annotations_path / "val"),
+        format_type='voc'
     )
     
     logger.info(f"Train dataset: {len(train_dataset)} images")

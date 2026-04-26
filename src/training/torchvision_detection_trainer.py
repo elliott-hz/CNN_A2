@@ -117,27 +117,29 @@ class DetectionDataset(Dataset):
             image = Image.open(str(img_path)).convert("RGB")
             image = F.to_tensor(image)
             
-            # Build target
+            # Build target with validation
             anns = self.image_to_anns.get(img_id, [])
             boxes = []
             labels = []
+            areas = []
             
             for ann in anns:
                 bbox = ann['bbox']  # [x, y, width, height]
-                boxes.append([
-                    bbox[0],
-                    bbox[1],
-                    bbox[0] + bbox[2],
-                    bbox[1] + bbox[3]
-                ])
-                labels.append(ann['category_id'])
+                x1, y1, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
+                x2, y2 = x1 + w, y1 + h
+                
+                # Filter out invalid boxes (must have positive width and height)
+                if w > 0 and h > 0 and x2 > x1 and y2 > y1:
+                    boxes.append([x1, y1, x2, y2])
+                    labels.append(ann['category_id'])
+                    areas.append(ann.get('area', w * h))
             
             target = {
                 'boxes': torch.as_tensor(boxes, dtype=torch.float32) if boxes else torch.zeros((0, 4)),
                 'labels': torch.as_tensor(labels, dtype=torch.int64) if labels else torch.zeros((0,), dtype=torch.int64),
                 'image_id': torch.tensor([img_id]),
-                'area': torch.as_tensor([ann['area'] for ann in anns], dtype=torch.float32) if anns else torch.zeros((0,)),
-                'iscrowd': torch.zeros((len(anns),), dtype=torch.int64) if anns else torch.zeros((0,), dtype=torch.int64)
+                'area': torch.as_tensor(areas, dtype=torch.float32) if areas else torch.zeros((0,)),
+                'iscrowd': torch.zeros((len(boxes),), dtype=torch.int64)
             }
         
         # Apply transforms if any

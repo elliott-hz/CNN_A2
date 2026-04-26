@@ -4,7 +4,7 @@ Dataset loader for Faster R-CNN and SSD models using COCO JSON or VOC XML format
 """
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import json
 import os

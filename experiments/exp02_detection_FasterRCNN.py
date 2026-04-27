@@ -211,7 +211,7 @@ def main():
         logger.info("TEST EVALUATION RESULTS")
         logger.info("=" * 80)
         logger.info(f"mAP@0.5: {map_metrics['map50']:.4f}")
-        logger.info(f"mAP@0.5:0.95: {map_metrics['map50_95']:.4f}")
+        # logger.info(f"mAP@0.5:0.95: {map_metrics['map50_95']:.4f}")  # Not available in simplified metrics
         logger.info(f"Precision: {map_metrics['precision']:.4f}")
         logger.info(f"Recall: {map_metrics['recall']:.4f}")
         logger.info(f"True Positives: {map_metrics['true_positives']}")
@@ -221,7 +221,7 @@ def main():
         # Save evaluation results
         eval_results = {
             'test_map50': map_metrics['map50'],
-            'test_map50_95': map_metrics['map50_95'],
+            # 'test_map50_95': map_metrics['map50_95'],  # Not available in simplified metrics
             'test_precision': map_metrics['precision'],
             'test_recall': map_metrics['recall'],
             'test_true_positives': map_metrics['true_positives'],
@@ -273,7 +273,7 @@ def main():
 ## Results
 - Best mAP@0.5 (validation): {trainer.best_map50:.4f} at epoch {trainer.best_epoch}
 - Test mAP@0.5: {map_metrics['map50']:.4f}
-- Test mAP@0.5:0.95: {map_metrics['map50_95']:.4f}
+# - Test mAP@0.5:0.95: {map_metrics['map50_95']:.4f}  # Not available in simplified metrics
 
 ## Key Characteristics
 - Two-stage detection architecture
@@ -292,7 +292,8 @@ def main():
     logger.info("EXPERIMENT COMPLETED SUCCESSFULLY")
     logger.info("=" * 80)
     logger.info(f"Results saved to: {output_dir}")
-    logger.info(f"Metrics: mAP@0.5={map_metrics['map50']:.4f}, mAP@0.5:0.95={map_metrics['map50_95']:.4f}")
+    logger.info(f"Metrics: mAP@0.5={map_metrics['map50']:.4f}")
+    # logger.info(f"Metrics: mAP@0.5={map_metrics['map50']:.4f}, mAP@0.5:0.95={map_metrics['map50_95']:.4f}")
 
 
 if __name__ == "__main__":

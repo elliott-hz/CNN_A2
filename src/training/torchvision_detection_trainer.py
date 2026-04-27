@@ -345,23 +345,31 @@ class TorchvisionDetectionTrainer:
     
     def _calculate_map(self, predictions, ground_truths):
         """
-        Calculate mAP@0.5 and mAP@0.5:0.95.
+        Calculate mAP@0.5 and mAP@0.5:0.95 with proper NMS and thresholding.
         
         This is a simplified implementation. For production, consider using
         pycocotools or torchmetrics for more accurate mAP calculation.
         """
-        # Simple mAP calculation at IoU=0.5
         iou_threshold = 0.5
-        conf_threshold = 0.01  # Lower threshold to capture more predictions
+        conf_threshold = 0.3  # Increased from 0.01 to filter low-confidence predictions
         
         true_positives = 0
         false_positives = 0
         false_negatives = 0
         
         for pred, gt in zip(predictions, ground_truths):
-            pred_boxes = pred['boxes'][pred['scores'] > conf_threshold]
-            pred_scores = pred['scores'][pred['scores'] > conf_threshold]
-            pred_labels = pred['labels'][pred['scores'] > conf_threshold]
+            # Apply confidence threshold first
+            high_conf_mask = pred['scores'] > conf_threshold
+            pred_boxes = pred['boxes'][high_conf_mask]
+            pred_scores = pred['scores'][high_conf_mask]
+            pred_labels = pred['labels'][high_conf_mask]
+            
+            # Apply NMS to remove duplicate detections
+            if len(pred_boxes) > 0:
+                keep_indices = nms(pred_boxes, pred_scores, iou_threshold=0.5)
+                pred_boxes = pred_boxes[keep_indices]
+                pred_scores = pred_scores[keep_indices]
+                pred_labels = pred_labels[keep_indices]
             
             gt_boxes = gt['boxes']
             gt_labels = gt['labels']

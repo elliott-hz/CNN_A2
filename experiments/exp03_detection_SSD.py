@@ -106,10 +106,10 @@ def main():
     training_config = {
         'learning_rate': 0.002,       # Reduced from 0.01 to prevent excessive false positives
         'batch_size': 32,            # Keep larger batch for stable gradients
-        'epochs': 11,               # Reduced from 120
+        'epochs': 150,               # Reduced from 120
         'optimizer': 'sgd',
         'weight_decay': 5e-4,        # Increased from 1e-4 for better regularization
-        'early_stopping_patience': 15,
+        'early_stopping_patience': 30,
         'use_amp': True,
         'gradient_accumulation_steps': 1,
         'warmup_epochs': 5,

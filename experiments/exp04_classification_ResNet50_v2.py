@@ -24,8 +24,8 @@ from src.training.classification_trainer import ClassificationTrainer
 from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 
-def create_dataloaders(data_root: str, batch_size: int = 32, num_workers: int = 4):
-    """Create train/val/test dataloaders with enhanced augmentation."""
+def create_dataloaders(data_root: str, batch_size: int = 16, num_workers: int = 2):
+    """Create train/val/test dataloaders with enhanced augmentation - optimized for T4 GPU."""
     
     # Enhanced training transforms
     train_transform = transforms.Compose([
@@ -69,19 +69,31 @@ def main():
     print("EXPERIMENT 04: Customized ResNet50")
     print("=" * 80)
     
-    # Configuration
+    # Configuration - Optimized for T4 GPU (16GB, ~10GB usable)
     STUDENT_ID = "25509225"
     DATA_ROOT = f"data/{STUDENT_ID}/Image_Classification/split_dataset"
-    BATCH_SIZE = 32
+    BATCH_SIZE = 16  # Reduced from 32 for T4 GPU memory constraints
     EPOCHS_PHASE1 = 15
     EPOCHS_PHASE2 = 45  # More epochs for customized model
     LR_PHASE1 = 1e-3
     LR_PHASE2 = 1e-4
     
-    # Create output directory
+    # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_dir = Path(f'outputs/exp04_customized_{timestamp}')
+    experiment_name = 'exp04_customized'
+    output_dir = Path(f'outputs/{experiment_name}/run_{timestamp}')
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f'Output directory: {output_dir}')
+    
+    # Check GPU availability and memory
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f'\nGPU: {gpu_name} ({gpu_memory:.1f} GB)')
+        print(f'Recommended batch size for ResNet50 on this GPU: ≤16')
+    else:
+        print('\nWarning: CUDA not available, using CPU')
     
     # Step 1: Load data
     print("\n[1/5] Loading data...")

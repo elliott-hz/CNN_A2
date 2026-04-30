@@ -45,30 +45,69 @@ CNN_A2/
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Setup GPU Environment (T4 Optimized)
+
+```bash
+chmod +x setupGPU.sh
+bash setupGPU.sh
+```
+
+This installs PyTorch with CUDA and verifies GPU availability. All experiments are optimized for **NVIDIA T4 GPU (16GB)**.
+
+### 2. Install Dependencies
 
 ```bash
 pip install torch torchvision ultralytics scikit-learn Pillow
 ```
 
-### 2. Run Experiments
+### 3. Run Experiments
 
 ```bash
-# Object Detection
-python experiments/exp01_detection_YOLOv8.py
-python experiments/exp02_detection_FasterRCNN.py
+# Object Detection (T4 optimized batch sizes)
+python experiments/exp01_detection_YOLOv8.py          # batch_size=16
+python experiments/exp02_detection_FasterRCNN.py      # batch_size=2
 
-# Image Classification
-python experiments/exp03_classification_ResNet50_v1.py
-python experiments/exp04_classification_ResNet50_v2.py
+# Image Classification (T4 optimized batch sizes)
+python experiments/exp03_classification_ResNet50_v1.py  # batch_size=16
+python experiments/exp04_classification_ResNet50_v2.py  # batch_size=16
 ```
 
-### 3. View Results
+**Note:** Batch sizes are optimized for T4 GPU. If you encounter OOM errors, reduce batch_size in the experiment script.
 
-Each experiment generates a timestamped directory in `outputs/` containing:
-- `training/best_model.pth` - Best model weights
-- `evaluation/evaluation_metrics.json` - Evaluation metrics
-- `experiment_summary.md` - Experiment summary (Markdown format)
+### 4. View Results
+
+Each experiment generates results in a structured directory:
+
+```
+outputs/
+├── exp01_yolov8/
+│   └── run_20260430_193045/
+│       ├── training/best_model.pth
+│       ├── evaluation/evaluation_metrics.json
+│       └── experiment_summary.md
+├── exp02_fasterrcnn/
+│   └── run_YYYYMMDD_HHMMSS/
+├── exp03_baseline/
+│   └── run_YYYYMMDD_HHMMSS/
+└── exp04_customized/
+    └── run_YYYYMMDD_HHMMSS/
+```
+
+This structure allows easy comparison of multiple runs for the same experiment.
+
+---
+
+## 💻 Hardware Requirements
+
+**Recommended:** NVIDIA T4 GPU (16GB VRAM) or equivalent
+
+| Experiment | Min GPU Memory | Recommended Batch Size |
+|------------|----------------|------------------------|
+| YOLOv8 Detection | 8GB | 16 |
+| Faster R-CNN | 10GB | 2 |
+| ResNet50 Classification | 6GB | 16 |
+
+See [T4_GPU_Optimization.md](requirements/T4_GPU_Optimization.md) for detailed optimization guide.
 
 ---
 

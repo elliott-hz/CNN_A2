@@ -1,9 +1,10 @@
 #!/bin/bash
-# Simple GPU Setup Script for CNN_A3 Project
-# This script installs PyTorch with CUDA support and verifies GPU availability
+# GPU Setup Script for CNN_A2 Project
+# Optimized for NVIDIA T4 GPU (16GB VRAM, ~10GB usable)
 
 echo "=========================================="
-echo "Setting up GPU environment for CNN_A3 project..."
+echo "Setting up GPU environment for CNN_A2 project..."
+echo "Target GPU: NVIDIA T4 (16GB VRAM)"
 echo "=========================================="
 
 # Install PyTorch with CUDA support
@@ -36,7 +37,7 @@ else
     exit 1
 fi
 
-# Verify GPU setup
+# Verify GPU setup and show recommendations
 echo "[STEP 4/4] Verifying GPU setup..."
 python -c "
 import torch
@@ -49,23 +50,37 @@ if cuda_available:
     print(f'Number of GPUs available: {gpu_count}')
     if gpu_count > 0:
         gpu_name = torch.cuda.get_device_name(0)
-        print(f'GPU 0: {gpu_name}')
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f'GPU 0: {gpu_name} ({gpu_memory:.1f} GB)')
+        
+        # Show batch size recommendations
+        print('\n=== Batch Size Recommendations for T4 GPU ===')
+        print('YOLOv8 Detection:       batch_size ≤ 16')
+        print('Faster R-CNN Detection: batch_size ≤ 2')
+        print('ResNet50 Classification: batch_size ≤ 16')
+        print('Note: Reduce batch_size if you encounter OOM errors')
+        
         # Test basic CUDA operation
         try:
             x = torch.randn(3, 3).cuda()
             y = torch.randn(3, 3).cuda()
             z = x + y
-            print('Basic CUDA operation test: PASSED')
+            print('\nBasic CUDA operation test: PASSED')
         except Exception as e:
-            print(f'Basic CUDA operation test: FAILED - {str(e)}')
+            print(f'\nBasic CUDA operation test: FAILED - {str(e)}')
 else:
     print('CUDA is not available. Make sure you have a compatible GPU.')
 "
 
+echo ""
 echo "=========================================="
 echo "Setup completed! Ready for GPU training."
-echo "To run experiments:"
-echo "  python experiments/exp01_detection_baseline.py"
-echo "  python experiments/exp02_detection_modified_v1.py"
-echo "  python experiments/exp03_detection_modified_v2.py"
+echo ""
+echo "Recommended experiments for T4 GPU:"
+echo "  python experiments/exp01_detection_YOLOv8.py          (batch_size=16)"
+echo "  python experiments/exp02_detection_FasterRCNN.py      (batch_size=2)"
+echo "  python experiments/exp03_classification_ResNet50_v1.py (batch_size=16)"
+echo "  python experiments/exp04_classification_ResNet50_v2.py (batch_size=16)"
+echo ""
+echo "If you encounter OOM errors, reduce batch_size in the experiment script."
 echo "=========================================="

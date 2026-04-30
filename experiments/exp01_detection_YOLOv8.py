@@ -10,6 +10,7 @@ Simple pipeline:
 """
 
 import sys
+import torch
 from pathlib import Path
 from datetime import datetime
 import yaml
@@ -29,16 +30,28 @@ def main():
     print("EXPERIMENT 01: YOLOv8 Baseline")
     print("=" * 80)
     
-    # Configuration
+    # Configuration - Optimized for T4 GPU (16GB, ~10GB usable)
     DATASET_CONFIG = "data/processed/detection/dataset.yaml"
     EPOCHS = 100
-    BATCH_SIZE = 24
+    BATCH_SIZE = 16  # Reduced from 24 for T4 GPU memory constraints
     LR = 0.001
     
-    # Create output directory
+    # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_dir = Path(f'outputs/exp01_yolov8_{timestamp}')
+    experiment_name = 'exp01_yolov8'
+    output_dir = Path(f'outputs/{experiment_name}/run_{timestamp}')
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f'Output directory: {output_dir}')
+    
+    # Check GPU availability and memory
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f'\nGPU: {gpu_name} ({gpu_memory:.1f} GB)')
+        print(f'Recommended batch size for this GPU: ≤16')
+    else:
+        print('\nWarning: CUDA not available, using CPU (will be slow)')
     
     # Step 1: Load dataset config
     print("\n[1/5] Loading dataset configuration...")

@@ -1,10 +1,18 @@
 """
-Training Module
-Contains training frameworks for detection and classification models
+Training Package
+
+Provides training frameworks for detection and classification models.
 """
 
-from .detection_trainer import DetectionTrainer
+# Classification trainer
 from .classification_trainer import ClassificationTrainer
-from .torchvision_detection_trainer import TorchvisionDetectionTrainer
 
-__all__ = ['DetectionTrainer', 'ClassificationTrainer', 'TorchvisionDetectionTrainer']
+# Detection trainers
+from .YOLOv8_trainer import YOLOv8Trainer
+from .FasterRCNN_trainer import FasterRCNNTrainer
+
+__all__ = [
+    'ClassificationTrainer',
+    'YOLOv8Trainer',
+    'FasterRCNNTrainer'
+]

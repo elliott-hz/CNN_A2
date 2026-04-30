@@ -1,78 +1,88 @@
 """
 Classification Evaluator
-Evaluation metrics and visualization for classification models
+
+Evaluates trained models and generates metrics and reports.
 """
 
 import torch
 import numpy as np
-from pathlib import Path
-import json
-import csv
+from torch.utils.data import DataLoader
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
                             f1_score, confusion_matrix, classification_report)
-from typing import Dict, Any, List
+from pathlib import Path
+import json
+from typing import Dict, List
+from tqdm import tqdm
 
 
 class ClassificationEvaluator:
     """
-    Evaluation framework for classification models.
+    Evaluates classification models on test data.
     
-    Calculates accuracy, precision, recall, F1-score, confusion matrix, and generates reports.
+    Responsibilities:
+    - Generate predictions
+    - Calculate metrics (accuracy, precision, recall, F1)
+    - Create confusion matrix
+    - Save evaluation results
     """
     
-    def __init__(self, class_names: List[str] = None):
+    def __init__(self, class_names: List[str]):
         """
         Initialize evaluator.
         
         Args:
             class_names: List of class names for reporting
         """
-        self.class_names = class_names or ['angry', 'happy', 'relax', 'frown', 'alert']
+        self.class_names = class_names
         self.metrics = {}
     
-    def evaluate(self, model, X_test, y_test, output_dir: str):
+    def evaluate(self, model: torch.nn.Module, test_loader: DataLoader, 
+                output_dir: str) -> Dict:
         """
         Evaluate model on test set.
         
         Args:
-            model: ResNet50Classifier model
-            X_test: Test images
-            y_test: Test labels
-            output_dir: Directory to save outputs
+            model: Trained model
+            test_loader: Test data loader
+            output_dir: Directory to save results
             
         Returns:
             Dictionary of evaluation metrics
         """
         print("=" * 80)
-        print("CLASSIFICATION MODEL EVALUATION")
+        print("MODEL EVALUATION")
         print("=" * 80)
         
-        figures_dir = Path(output_dir) / "figures"
-        figures_dir.mkdir(parents=True, exist_ok=True)
-        
         # Get predictions
-        y_pred = self._get_predictions(model, X_test)
+        y_true, y_pred = self._get_predictions(model, test_loader)
         
         # Calculate metrics
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-        recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
-        f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+        accuracy = accuracy_score(y_true, y_pred)
+        precision_weighted = precision_score(y_true, y_pred, average='weighted', zero_division=0)
+        recall_weighted = recall_score(y_true, y_pred, average='weighted', zero_division=0)
+        f1_weighted = f1_score(y_true, y_pred, average='weighted', zero_division=0)
         
-        # Per-class metrics
-        per_class_precision = precision_score(y_test, y_pred, average=None, zero_division=0)
-        per_class_recall = recall_score(y_test, y_pred, average=None, zero_division=0)
-        per_class_f1 = f1_score(y_test, y_pred, average=None, zero_division=0)
+        precision_macro = precision_score(y_true, y_pred, average='macro', zero_division=0)
+        recall_macro = recall_score(y_true, y_pred, average='macro', zero_division=0)
+        f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
         
         # Confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
+        cm = confusion_matrix(y_true, y_pred)
         
-        # Store metrics
+        # Per-class metrics
+        per_class_precision = precision_score(y_true, y_pred, average=None, zero_division=0)
+        per_class_recall = recall_score(y_true, y_pred, average=None, zero_division=0)
+        per_class_f1 = f1_score(y_true, y_pred, average=None, zero_division=0)
+        
+        # Compile metrics
         self.metrics = {
             'accuracy': float(accuracy),
-            'precision': float(precision),
-            'recall': float(recall),
-            'f1_score': float(f1),
+            'precision_weighted': float(precision_weighted),
+            'recall_weighted': float(recall_weighted),
+            'f1_weighted': float(f1_weighted),
+            'precision_macro': float(precision_macro),
+            'recall_macro': float(recall_macro),
+            'f1_macro': float(f1_macro),
             'per_class_precision': per_class_precision.tolist(),
             'per_class_recall': per_class_recall.tolist(),
             'per_class_f1': per_class_f1.tolist(),
@@ -80,114 +90,94 @@ class ClassificationEvaluator:
         }
         
         # Print results
-        print(f"\nOverall Metrics:")
-        print(f"  Accuracy: {accuracy:.4f}")
-        print(f"  Precision: {precision:.4f}")
-        print(f"  Recall: {recall:.4f}")
-        print(f"  F1-Score: {f1:.4f}")
+        print(f'\nOverall Metrics:')
+        print(f'  Accuracy: {accuracy:.4f}')
+        print(f'  Precision (weighted): {precision_weighted:.4f}')
+        print(f'  Recall (weighted): {recall_weighted:.4f}')
+        print(f'  F1-Score (weighted): {f1_weighted:.4f}')
+        print(f'  Precision (macro): {precision_macro:.4f}')
+        print(f'  Recall (macro): {recall_macro:.4f}')
+        print(f'  F1-Score (macro): {f1_macro:.4f}')
         
-        print(f"\nPer-Class Metrics:")
+        print(f'\nPer-Class Metrics:')
         for i, class_name in enumerate(self.class_names):
-            print(f"  {class_name}:")
-            print(f"    Precision: {per_class_precision[i]:.4f}")
-            print(f"    Recall: {per_class_recall[i]:.4f}")
-            print(f"    F1-Score: {per_class_f1[i]:.4f}")
+            print(f'  {class_name}: P={per_class_precision[i]:.4f} R={per_class_recall[i]:.4f} F1={per_class_f1[i]:.4f}')
         
-        print(f"\nConfusion Matrix:")
-        print(cm)
+        print(f'\nConfusion Matrix:\n{cm}')
         
-        # Save metrics
-        metrics_path = Path(output_dir) / "logs" / "evaluation_metrics.json"
-        with open(metrics_path, 'w') as f:
-            json.dump(self.metrics, f, indent=2)
-        
-        # Save detailed classification report
-        report = classification_report(y_test, y_pred, target_names=self.class_names)
-        report_path = Path(output_dir) / "logs" / "classification_report.txt"
-        with open(report_path, 'w') as f:
-            f.write(report)
-        
-        print(f"\nMetrics saved to: {metrics_path}")
-        print(f"Detailed report saved to: {report_path}")
+        # Save results
+        self._save_results(y_true, y_pred, output_dir)
         
         return self.metrics
     
-    def _get_predictions(self, model, X_test) -> np.ndarray:
+    def _get_predictions(self, model: torch.nn.Module, 
+                        test_loader: DataLoader) -> tuple:
         """
-        Get model predictions on test data.
+        Get model predictions.
         
         Args:
             model: Trained model
-            X_test: Test images
+            test_loader: Test data loader
             
         Returns:
-            Predicted labels
+            Tuple of (true_labels, predicted_labels)
         """
         model.eval()
         device = next(model.parameters()).device
         
-        # Convert to tensor
-        X_tensor = torch.FloatTensor(X_test).permute(0, 3, 1, 2).to(device)
-        
-        # Get predictions in batches
         all_preds = []
-        batch_size = 64
+        all_labels = []
         
         with torch.no_grad():
-            for i in range(0, len(X_tensor), batch_size):
-                batch = X_tensor[i:i+batch_size]
-                outputs = model(batch)
-                _, predicted = outputs.max(1)
+            for inputs, targets in tqdm(test_loader, desc="Evaluating"):
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+                
+                outputs = model(inputs)
+                
+                # Handle GoogLeNet auxiliary outputs or other tuple returns
+                if isinstance(outputs, tuple):
+                    main_out = outputs[0]
+                else:
+                    main_out = outputs
+                
+                _, predicted = main_out.max(1)
+                
                 all_preds.append(predicted.cpu().numpy())
+                all_labels.append(targets.cpu().numpy())
         
-        return np.concatenate(all_preds)
+        y_pred = np.concatenate(all_preds)
+        y_true = np.concatenate(all_labels)
+        
+        return y_true, y_pred
     
-    def generate_report(self, output_dir: str):
+    def _save_results(self, y_true, y_pred, output_dir: str):
         """
-        Generate comprehensive evaluation report in markdown format.
+        Save evaluation results.
         
         Args:
-            output_dir: Directory containing experiment outputs
+            y_true: True labels
+            y_pred: Predicted labels
+            output_dir: Directory to save results
         """
-        report_path = Path(output_dir) / "logs" / "experiment_report.md"
+        output_path = Path(output_dir) / "logs"
+        output_path.mkdir(parents=True, exist_ok=True)
         
-        # Build per-class metrics table
-        per_class_rows = ""
-        for i, class_name in enumerate(self.class_names):
-            per_class_rows += f"| {class_name} | {self.metrics['per_class_precision'][i]:.4f} | {self.metrics['per_class_recall'][i]:.4f} | {self.metrics['per_class_f1'][i]:.4f} |\n"
+        # Save metrics JSON
+        metrics_path = output_path / 'evaluation_metrics.json'
+        with open(metrics_path, 'w') as f:
+            json.dump(self.metrics, f, indent=2)
         
-        report = f"""# Experiment Report: Classification Model
-
-## Overall Metrics
-
-| Metric | Value |
-|--------|-------|
-| Accuracy | {self.metrics.get('accuracy', 'N/A'):.4f} |
-| Precision | {self.metrics.get('precision', 'N/A'):.4f} |
-| Recall | {self.metrics.get('recall', 'N/A'):.4f} |
-| F1-Score | {self.metrics.get('f1_score', 'N/A'):.4f} |
-
-## Per-Class Metrics
-
-| Class | Precision | Recall | F1-Score |
-|-------|-----------|--------|----------|
-{per_class_rows}
-
-## Confusion Matrix
-
-```
-{np.array(self.metrics['confusion_matrix'])}
-```
-
-## Figures
-
-See the `figures/` directory for visualization outputs:
-- Confusion matrix heatmap
-- ROC curves (one-vs-rest)
-- Per-class metric bar charts
-"""
+        # Save classification report
+        report_text = classification_report(
+            y_true, 
+            y_pred, 
+            target_names=self.class_names,
+            zero_division=0
+        )
         
+        report_path = output_path / 'classification_report.txt'
         with open(report_path, 'w') as f:
-            f.write(report)
+            f.write(report_text)
         
-        print(f"Report saved to: {report_path}")
+        print(f'\nResults saved to: {output_path}')

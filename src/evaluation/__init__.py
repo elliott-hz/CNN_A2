@@ -1,9 +1,16 @@
 """
-Evaluation Module
-Contains evaluation frameworks for detection and classification models
+Evaluation Package
+
+Provides evaluation tools for detection and classification models.
 """
 
-from .detection_evaluator import DetectionEvaluator
+# Classification evaluator
 from .classification_evaluator import ClassificationEvaluator
 
-__all__ = ['DetectionEvaluator', 'ClassificationEvaluator']
+# Detection evaluator
+from .detection_evaluator import DetectionEvaluator
+
+__all__ = [
+    'ClassificationEvaluator',
+    'DetectionEvaluator'
+]

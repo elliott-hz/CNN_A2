@@ -1,292 +1,105 @@
-# Visual Dog Emotion Recognition System
+# CNN Assignment 2 - Object Detection & Classification
 
-A computer vision system for detecting dogs and recognizing their emotional states using deep learning.
-
----
-
-## 🎯 Project Overview
-
-This project implements a two-stage pipeline:
-1. **Dog Detection**: Locate dogs in images using YOLOv8
-2. **Emotion Classification**: Classify detected dog emotions (5 classes) using CNN architectures
-
-**Key Features:**
-- Modular architecture with separate detection and classification modules
-- Multiple model architectures for comparison (ResNet50, AlexNet, GoogLeNet)
-- Comprehensive training strategies with data augmentation
-- Detailed evaluation metrics and visualization
-- Reproducible experiments with fixed random seeds
+**Student ID:** 25509225  
+**Course:** 42028 Deep Learning and Convolutional Neural Networks
 
 ---
 
-## 📚 Documentation
+## 📋 Project Structure
 
-### Task-Specific Training Guides
-
-- **[📊 Classification Training Guide](CLASSIFICATION_TRAINING.md)** - Complete guide for emotion classification models (ResNet50, AlexNet, GoogLeNet)
-  - Model architectures and configurations
-  - Training strategies and optimization
-  - Evaluation metrics and results
-  - Bug fixes and troubleshooting
-
-- **[🔍 Detection Training Guide](DETECTION_TRAINING.md)** - Complete guide for dog detection model (YOLOv8)
-  - YOLOv8 architecture and backbone selection
-  - Training configuration and augmentations
-  - mAP evaluation and performance expectations
-  - Advanced configuration options
-
-### Common Information (Below)
-
-- Quick Start
-- Environment Setup
-- Running Experiments
-- Output Organization
-- Best Practices
+```
+CNN_A2/
+├── experiments/                    # Experiment scripts
+│   ├── exp01_detection_YOLOv8.py          # YOLOv8 detection
+│   ├── exp02_detection_FasterRCNN.py      # Faster R-CNN detection
+│   ├── exp03_classification_ResNet50_v1.py  # ResNet50 baseline classification
+│   └── exp04_classification_ResNet50_v2.py  # ResNet50 customized classification
+│
+├── src/
+│   ├── models/                     # Model definitions
+│   │   ├── ResNet50ClassifierModel.py
+│   │   ├── YOLOv8DetectorModel.py
+│   │   └── FasterRCNNDetectorModel.py
+│   ├── training/                   # Training modules
+│   │   ├── classification_trainer.py
+│   │   ├── YOLOv8_trainer.py
+│   │   └── FasterRCNN_trainer.py
+│   ├── evaluation/                 # Evaluation modules
+│   │   ├── classification_evaluator.py
+│   │   └── detection_evaluator.py
+│   └── data_processing/            # Data processing
+│       ├── classification_split.py
+│       └── faster_rcnn_dataloader.py
+│
+├── requirements/                   # Documentation
+│   ├── Classification_Architecture.md
+│   ├── Detection_Architecture.md
+│   ├── Classification_Splitting.md
+│   ├── FasterRCNN_DataLoader.md
+│   └── DataSets.md
+│
+└── outputs/                        # Experiment results (auto-generated)
+```
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Environment Setup
+### 1. Install Dependencies
 
 ```bash
-# Install PyTorch first (choose based on your hardware)
-# CPU:
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-# GPU (CUDA 11.8):
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# Install other dependencies
-pip install -r requirements.txt
-
-# Verify setup
-python test_setup.py
+pip install torch torchvision ultralytics scikit-learn Pillow
 ```
 
-### 2. Download Data
+### 2. Run Experiments
 
 ```bash
-bash scripts/download_data.sh
+# Object Detection
+python experiments/exp01_detection_YOLOv8.py
+python experiments/exp02_detection_FasterRCNN.py
+
+# Image Classification
+python experiments/exp03_classification_ResNet50_v1.py
+python experiments/exp04_classification_ResNet50_v2.py
 ```
 
-### 3. Run Experiments
+### 3. View Results
 
-```bash
-# Run all experiments
-bash scripts/run_all_experiments.sh
-
-# Run single experiment
-python experiments/exp04_classification_ResNet50_baseline.py
-```
-
-### 4. Inference Demo
-
-```bash
-bash scripts/inference_demo.sh
-```
+Each experiment generates a timestamped directory in `outputs/` containing:
+- `training/best_model.pth` - Best model weights
+- `evaluation/evaluation_metrics.json` - Evaluation metrics
+- `experiment_summary.md` - Experiment summary (Markdown format)
 
 ---
 
-## 📊 Experiment Overview
+## 📊 Experiments Overview
 
-The project includes **6 main experiments** covering both detection and classification:
-
-### Detection Experiments (Exp01-03) - Architecture Comparison
-
-| Experiment | Model | Architecture | Parameters | Key Feature |
-|------------|-------|--------------|------------|-------------|
-| Exp01 | YOLOv8 (Medium) | Single-stage | ~25.9M | Fast inference, balanced accuracy |
-| Exp02 | Faster R-CNN | Two-stage | ~41M | Higher accuracy, ResNet50+FPN |
-| Exp03 | SSD (VGG16) | Single-stage multi-scale | ~26M | Moderate speed, good for small objects |
-
-**Detection Dataset**: Dog Face Detection Dataset  
-**Training**: All models trained ≥100 epochs with mixed precision (AMP)  
-**Comparison**: Speed vs accuracy trade-offs across different detection paradigms
-
-### Classification Experiments (Exp04-06) - CNN Architecture Comparison
-
-| Experiment | Model | Parameters | Key Feature |
-|------------|-------|------------|-------------|
-| Exp04 | ResNet50 | ~25.6M | Modern residual network |
-| Exp05 | AlexNet | ~60M | Classic CNN architecture |
-| Exp06 | GoogLeNet | ~7M | Efficient inception modules |
-
-**Classification Dataset**: Dog Emotion Dataset (5 classes: alert, angry, frown, happy, relax)  
-**Training**: Transfer learning with frozen backbone + fine-tuning  
-**Comparison**: Performance across different CNN eras (2012-2015)
-
-**Detailed configurations and comparisons**: 
-- See [DETECTION_TRAINING.md](DETECTION_TRAINING.md) for detection experiments
-- See [CLASSIFICATION_TRAINING.md](CLASSIFICATION_TRAINING.md) for classification experiments
+| Experiment | Model | Task | Status |
+|------------|-------|------|--------|
+| Exp01 | YOLOv8m | Object Detection | ✅ Complete |
+| Exp02 | Faster R-CNN | Object Detection | ✅ Complete |
+| Exp03 | ResNet50 Baseline | Image Classification | ✅ Complete |
+| Exp04 | ResNet50 Customized | Image Classification | ✅ Complete |
 
 ---
 
-## 💻 Environment Requirements
+## 📖 Detailed Documentation
 
-### Core Dependencies
-
-- **Python**: 3.8+
-- **PyTorch**: 2.0+ (install separately based on hardware)
-- **Ultralytics**: YOLOv8 >= 8.0.0
-- **NumPy**: >= 1.24.0, < 2.0.0 (version constraint important!)
-
-### Installation Notes
-
-⚠️ **Important**: 
-1. Install PyTorch **first** with appropriate CUDA version
-2. NumPy must be < 2.0.0 for compatibility
-3. See [DETECTION_TRAINING.md](DETECTION_TRAINING.md) for detailed environment setup
+- **[Classification_Architecture.md](requirements/Classification_Architecture.md)** - Classification task architecture
+- **[Detection_Architecture.md](requirements/Detection_Architecture.md)** - Detection task architecture
+- **[Classification_Splitting.md](requirements/Classification_Splitting.md)** - Dataset splitting guide
+- **[FasterRCNN_DataLoader.md](requirements/FasterRCNN_DataLoader.md)** - DataLoader implementation
+- **[DataSets.md](requirements/DataSets.md)** - Dataset overview
 
 ---
 
-## 🏗️ Project Structure
+## 🔧 Architecture Design Principles
 
-```
-CNN_A3/
-├── experiments/              # Experiment scripts
-│   ├── exp01_detection_YOLOv8_baseline.py
-│   ├── exp04_classification_ResNet50_baseline.py
-│   ├── exp05_classification_AlexNet.py
-│   └── exp06_classification_GoogLeNet.py
-│
-├── src/                      # Source code
-│   ├── data_processing/      # Data download and preprocessing
-│   ├── models/               # Model definitions
-│   ├── training/             # Training logic
-│   ├── evaluation/           # Evaluation metrics
-│   └── inference/            # Inference pipeline
-│
-├── scripts/                  # Shell scripts for automation
-├── outputs/                  # Experiment results (auto-generated)
-├── config.yaml               # Global configuration
-│
-├── CLASSIFICATION_TRAINING.md    # Classification training guide
-├── DETECTION_TRAINING.md         # Detection training guide
-└── README.md                     # This file
-```
+1. **Modularity**: Models, training, and evaluation are completely separated
+2. **Simplicity**: Each file has a single responsibility
+3. **Reproducibility**: Fixed random seeds, embedded configurations
+4. **Maintainability**: Clear code structure and documentation
 
 ---
 
-## 📂 Output Organization
-
-Each experiment saves results to timestamped directories:
-
-```
-outputs/
-├── exp01_detection_YOLOv8_baseline/
-│   └── run_20260420_193045/
-│       ├── model/          # Model weights and config
-│       ├── logs/           # Training logs and reports
-│       └── figures/        # Visualization plots
-│
-├── exp04_classification_ResNet50_baseline/
-│   └── run_timestamp/
-│       ├── model/
-│       ├── logs/
-│       └── figures/
-│
-└── ... (other experiments)
-```
-
-**Output Contents:**
-- `model/best_model.pt` or `.pth`: Best model weights
-- `logs/training_log.csv`: Epoch-by-epoch metrics
-- `logs/experiment_report.md`: Comprehensive markdown report
-- `figures/*.png`: Confusion matrices, ROC curves, PR curves, etc.
-
----
-
-## 💡 Best Practices
-
-### 1. Reproducibility
-
-All experiments use fixed random seeds:
-```python
-torch.manual_seed(42)
-np.random.seed(42)
-random.seed(42)
-```
-
-### 2. Resource Efficiency
-
-- Use mixed precision training (`use_amp=True`) for 2x speedup
-- Choose appropriate model size for your hardware
-- Monitor GPU memory: `watch -n 1 nvidia-smi`
-
-### 3. Quick Validation
-
-Use small subset for rapid testing:
-```bash
-python experiments/exp04_classification_ResNet50_baseline.py --use_small_subset
-```
-
-### 4. Monitoring Training
-
-```bash
-# Watch training progress
-tail -f outputs/<experiment>/run_<timestamp>/logs/training_log.csv
-
-# View visualizations
-open outputs/<experiment>/run_<timestamp>/figures/*.png
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Problem**: Out of Memory (OOM)
-```
-Solution:
-- Reduce batch_size
-- Use smaller model backbone
-- Enable gradient accumulation
-- Enable AMP if not already enabled
-```
-
-**Problem**: Training loss not decreasing
-```
-Solution:
-- Check learning rate (try lower/higher)
-- Verify data loading is correct
-- Ensure model is in training mode: model.train()
-- Check for label errors in dataset
-```
-
-**Problem**: Overfitting (val loss increasing)
-```
-Solution:
-- Increase dropout rate
-- Add more data augmentation
-- Enable early stopping
-- Increase weight_decay
-```
-
-**Detailed troubleshooting guides**:
-- Classification issues: See [CLASSIFICATION_TRAINING.md](CLASSIFICATION_TRAINING.md) - Section "Bug Fixes & Troubleshooting"
-- Detection issues: See [DETECTION_TRAINING.md](DETECTION_TRAINING.md) - Section "Troubleshooting"
-
----
-
-## 📖 Additional Resources
-
-- **[Classification Training Guide](CLASSIFICATION_TRAINING.md)**: Detailed model architectures, training strategies, optimization plans, and bug fixes for classification experiments
-- **[Detection Training Guide](DETECTION_TRAINING.md)**: YOLOv8 configuration, backbone selection, evaluation metrics, and advanced settings for detection experiments
-
----
-
-## 📝 License
-
-[Add your license information here]
-
----
-
-## 👥 Contributors
-
-[Add contributor information here]
-
----
-
-**Last Updated**: 2026-04-26
+**Last Updated:** 2026-04-30

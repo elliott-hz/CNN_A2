@@ -11,6 +11,7 @@ Simple pipeline:
 
 import sys
 import json
+import torch
 from pathlib import Path
 from datetime import datetime
 
@@ -30,20 +31,32 @@ def main():
     print("EXPERIMENT 02: Faster R-CNN Baseline")
     print("=" * 80)
     
-    # Configuration
+    # Configuration - Optimized for T4 GPU (16GB, ~10GB usable)
     STUDENT_ID = "25509225"
     DATA_ROOT = f"data/{STUDENT_ID}/Object_Detection/coco"  # Using COCO format
     ANNOTATION_FORMAT = 'coco'  # Options: 'coco', 'pascal', 'yolo'
     CLASS_NAMES = ['Cell', 'Cell-Multi', 'No-Anomaly', 'Shadowing', 'Unclassified']
     
     EPOCHS = 50
-    BATCH_SIZE = 4  # Smaller batch size for Faster R-CNN
+    BATCH_SIZE = 2  # Reduced from 4 for T4 GPU memory constraints (Faster R-CNN is memory-intensive)
     LR = 0.001
     
-    # Create output directory
+    # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_dir = Path(f'outputs/exp02_fasterrcnn_{timestamp}')
+    experiment_name = 'exp02_fasterrcnn'
+    output_dir = Path(f'outputs/{experiment_name}/run_{timestamp}')
     output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f'Output directory: {output_dir}')
+    
+    # Check GPU availability and memory
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        print(f'\nGPU: {gpu_name} ({gpu_memory:.1f} GB)')
+        print(f'Recommended batch size for Faster R-CNN on this GPU: ≤2')
+    else:
+        print('\nWarning: CUDA not available, using CPU (will be very slow)')
     
     # Step 1: Load dataset
     print("\n[1/5] Loading dataset...")

@@ -1,16 +1,20 @@
 """
-Models Module
-Contains model definitions for detection and classification
+Models Package
+
+Provides detection and classification models.
 """
 
-from .detection_model import YOLOv8Detector, FasterRCNNDetector, SSDDetector
-from .classification_model import ResNet50Classifier, AlexNetClassifier, GoogLeNetClassifier
+# Classification models
+from .ResNet50ClassifierModel import ResNet50Classifier, BASELINE_CONFIG, CUSTOMIZED_CONFIG
+
+# Detection models
+from .YOLOv8DetectorModel import YOLOv8Detector, YOLOV8_BASELINE_CONFIG
+from .FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_BASELINE_CONFIG
 
 __all__ = [
-    'YOLOv8Detector', 
-    'FasterRCNNDetector',
-    'SSDDetector',
-    'ResNet50Classifier', 
-    'AlexNetClassifier', 
-    'GoogLeNetClassifier'
+    # Classification
+    'ResNet50Classifier', 'BASELINE_CONFIG', 'CUSTOMIZED_CONFIG',
+    # Detection
+    'YOLOv8Detector', 'YOLOV8_BASELINE_CONFIG',
+    'FasterRCNNDetector', 'FASTERRCNN_BASELINE_CONFIG'
 ]

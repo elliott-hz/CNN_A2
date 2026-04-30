@@ -1,0 +1,80 @@
+{
+  "timestamp": "2026-04-30T17:40:58.521074",
+  "student_id": "25509225",
+  "split_ratios": {
+    "train": 0.7,
+    "valid": 0.15,
+    "test": 0.15
+  },
+  "statistics": {
+    "classes": {
+      "CRESTED KINGFISHER": {
+        "total": 158,
+        "train": 110,
+        "valid": 23,
+        "test": 25
+      },
+      "CROW": {
+        "total": 158,
+        "train": 110,
+        "valid": 23,
+        "test": 25
+      },
+      "EASTERN MEADOWLARK": {
+        "total": 173,
+        "train": 121,
+        "valid": 25,
+        "test": 27
+      },
+      "FAIRY BLUEBIRD": {
+        "total": 156,
+        "train": 109,
+        "valid": 23,
+        "test": 24
+      },
+      "HARLEQUIN QUAIL": {
+        "total": 139,
+        "train": 97,
+        "valid": 20,
+        "test": 22
+      },
+      "LAUGHING GULL": {
+        "total": 179,
+        "train": 125,
+        "valid": 26,
+        "test": 28
+      },
+      "PALILA": {
+        "total": 156,
+        "train": 109,
+        "valid": 23,
+        "test": 24
+      },
+      "PARADISE TANAGER": {
+        "total": 165,
+        "train": 115,
+        "valid": 24,
+        "test": 26
+      },
+      "RAINBOW LORIKEET": {
+        "total": 146,
+        "train": 102,
+        "valid": 21,
+        "test": 23
+      },
+      "TOWNSENDS WARBLER": {
+        "total": 159,
+        "train": 111,
+        "valid": 23,
+        "test": 25
+      }
+    },
+    "totals": {
+      "train": 1109,
+      "valid": 231,
+      "test": 249,
+      "total": 1589
+    }
+  },
+  "output_path": "/Users/elliott/vscode_workplace/CNN_A2/data/25509225/Image_Classification/split_dataset"
+}

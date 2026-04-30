@@ -1,299 +1,166 @@
 """
-Experiment 02: Detection Model - Faster R-CNN (ResNet50+FPN)
+Experiment 02: Faster R-CNN Baseline for Dog Detection
 
-This experiment trains a Faster R-CNN model for dog face detection.
-Two-stage detection architecture with high accuracy.
-Configuration: ResNet50 backbone + FPN, SGD optimizer, lr=0.005
+Simple pipeline:
+1. Load dataset
+2. Initialize model
+3. Train
+4. Evaluate
+5. Save results
 """
 
 import sys
-import argparse
+import json
 from pathlib import Path
-import glob
+from datetime import datetime
 
-# Add parent directory to path
+# Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.models.detection_model import FasterRCNNDetector, FASTER_RCNN_CONFIG
-from src.training.torchvision_detection_trainer import TorchvisionDetectionTrainer
-from src.data_processing.torchvision_detection_dataset import create_detection_dataloaders
-from src.utils.file_utils import create_experiment_dir
-from src.utils.logger import setup_logger
-import yaml
-
-
-def get_latest_run_dir(experiment_name):
-    """
-    Helper function to find the latest run directory for resuming.
-    """
-    base_output_dir = Path("outputs") / experiment_name
-    if not base_output_dir.exists():
-        return None
-    
-    # Find all subdirectories that look like run timestamps
-    run_dirs = [d for d in base_output_dir.iterdir() if d.is_dir() and d.name.startswith("run_")]
-    
-    if not run_dirs:
-        return None
-    
-    # Sort by name (timestamp) to get the latest one
-    latest_run = sorted(run_dirs, key=lambda x: x.name)[-1]
-    return latest_run
+from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_BASELINE_CONFIG
+from src.training.FasterRCNN_trainer import FasterRCNNTrainer
+from src.evaluation.detection_evaluator import DetectionEvaluator
+from src.data_processing.faster_rcnn_dataloader import create_faster_rcnn_dataloaders
 
 
 def main():
-    """Run Experiment 02: Faster R-CNN Detection."""
+    """Run Experiment 02: Faster R-CNN Baseline."""
     
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run Experiment 02: Faster R-CNN Detection')
-    parser.add_argument('--resume', action='store_true',
-                        help='Resume training from the latest checkpoint')
+    print("=" * 80)
+    print("EXPERIMENT 02: Faster R-CNN Baseline")
+    print("=" * 80)
     
-    args = parser.parse_args()
+    # Configuration
+    STUDENT_ID = "25509225"
+    DATA_ROOT = f"data/{STUDENT_ID}/Object_Detection/coco"  # Using COCO format
+    ANNOTATION_FORMAT = 'coco'  # Options: 'coco', 'pascal', 'yolo'
+    CLASS_NAMES = ['Cell', 'Cell-Multi', 'No-Anomaly', 'Shadowing', 'Unclassified']
     
-    RESUME_TRAINING = args.resume
+    EPOCHS = 50
+    BATCH_SIZE = 4  # Smaller batch size for Faster R-CNN
+    LR = 0.001
     
-    # Setup
-    experiment_name = "exp02_detection_FasterRCNN"
+    # Create output directory
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_dir = Path(f'outputs/exp02_fasterrcnn_{timestamp}')
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Determine output_dir based on whether to resume
-    if RESUME_TRAINING:
-        output_dir = get_latest_run_dir(experiment_name)
-        if output_dir is None:
-            print(f"Error: No previous runs found for {experiment_name} to resume.")
-            sys.exit(1)
-        logger = setup_logger(experiment_name, log_file=output_dir / "logs" / "training.log")
-        logger.info("=" * 80)
-        logger.info(f"RESUMING EXPERIMENT: {experiment_name}")
-        logger.info(f"Resuming from directory: {output_dir}")
-        logger.info("=" * 80)
-    else:
-        output_dir = create_experiment_dir(experiment_name)
-        logger = setup_logger(experiment_name)
-        logger.info("=" * 80)
-        logger.info(f"STARTING NEW EXPERIMENT: {experiment_name}")
-        logger.info("=" * 80)
+    # Step 1: Load dataset
+    print("\n[1/5] Loading dataset...")
+    print(f'Data root: {DATA_ROOT}')
+    print(f'Annotation format: {ANNOTATION_FORMAT}')
+    print(f'Classes: {CLASS_NAMES}')
     
-    # Step 1: Load dataset configuration
-    logger.info("\n[Step 1/5] Loading dataset configuration...")
-    
-    # Use COCO format dataset
-    dataset_config_path = Path("data/processed/detection_coco/dataset.yaml")
-    
-    if not dataset_config_path.exists():
-        logger.error(f"Dataset config not found: {dataset_config_path}")
-        logger.error("Please run format conversion first: python src/data_processing/convert_detection_format.py")
+    try:
+        train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
+            data_root=DATA_ROOT,
+            batch_size=BATCH_SIZE,
+            num_workers=2,
+            annotation_format=ANNOTATION_FORMAT,
+            class_names=CLASS_NAMES
+        )
+        
+        print(f'\nDataset loaded successfully:')
+        print(f'  Train samples: {len(train_loader.dataset)}')
+        print(f'  Val samples: {len(val_loader.dataset)}')
+        print(f'  Test samples: {len(test_loader.dataset)}')
+        
+    except Exception as e:
+        print(f'Error loading dataset: {e}')
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     
-    with open(dataset_config_path, 'r') as f:
-        dataset_config = yaml.safe_load(f)
+    # Step 2: Initialize model
+    print("\n[2/5] Initializing Faster R-CNN model...")
     
-    logger.info(f"Dataset config loaded from: {dataset_config_path}")
-    logger.info(f"Dataset root: {dataset_config['path']}")
-    logger.info(f"Classes: {dataset_config['nc']} ({dataset_config['names']})")
-    
-    # Step 2: Initialize model and trainer
-    logger.info("[Step 2/5] Initializing model and trainer...")
-    
-    # Configure Faster R-CNN model - Optimized for faster training
-    model_config = FASTER_RCNN_CONFIG.copy()
-    model_config['num_classes'] = dataset_config['nc'] + 1  # +1 for background class
-    
-    # Training configuration optimized for speed
-    training_config = {
-        'learning_rate': 0.005,
-        'batch_size': 8,  # Increased from 4 to utilize GPU memory better
-        'epochs': 120,     # Reduced from 120 (faster convergence with larger batch)
-        'optimizer': 'sgd',
-        'weight_decay': 1e-4,
-        'early_stopping_patience': 15,
-        'use_amp': True,
-        'gradient_accumulation_steps': 1,  # No need with larger batch
-        'warmup_epochs': 10,
-        'scheduler': 'cosine',
-        'resume': RESUME_TRAINING
+    # Update config with correct number of classes (including background)
+    num_classes = len(CLASS_NAMES) + 1  # +1 for background
+    model_config = {
+        **FASTERRCNN_BASELINE_CONFIG,
+        'num_classes': num_classes
     }
     
-    logger.info(f"Model config: {model_config}")
-    logger.info(f"Training config: {training_config}")
+    model = FasterRCNNDetector(**model_config)
+    print(f'Number of classes: {num_classes} ({len(CLASS_NAMES)} + background)')
+    print(f'Image size: {FASTERRCNN_BASELINE_CONFIG["min_size"]}x{FASTERRCNN_BASELINE_CONFIG["max_size"]}')
     
-    # Initialize model
-    model = FasterRCNNDetector(model_config)
+    # Count parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'Total params: {total_params:,}, Trainable: {trainable_params:,}')
     
-    # Initialize trainer
-    trainer = TorchvisionDetectionTrainer(model_config, training_config)
+    # Step 3: Train
+    print("\n[3/5] Training model...")
+    trainer = FasterRCNNTrainer(learning_rate=LR, weight_decay=1e-4)
     
-    # Create dataloaders
-    logger.info("\n[Step 2.5/5] Creating dataloaders...")
-    try:
-        train_loader, val_loader, test_loader = create_detection_dataloaders(
-            dataset_config_path=str(dataset_config_path),
-            batch_size=training_config['batch_size'],
-            num_workers=4,
-            model_type='faster_rcnn'
-        )
-        logger.info(f"Train loader: {len(train_loader.dataset)} samples")
-        logger.info(f"Val loader: {len(val_loader.dataset)} samples")
-        logger.info(f"Test loader: {len(test_loader.dataset)} samples")
-    except Exception as e:
-        logger.error(f"Failed to create dataloaders: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    history = trainer.train(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        epochs=EPOCHS,
+        output_dir=str(output_dir / 'training'),
+        patience=10
+    )
     
-    # Step 3: Train model
-    logger.info("\n[Step 3/5] Training model...")
-    try:
-        results = trainer.train(
-            model=model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            output_dir=str(output_dir),
-            dataset_config_path=str(dataset_config_path)
-        )
-        
-        logger.info("Training completed successfully!")
-        
-    except Exception as e:
-        logger.error(f"Training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    print(f'Training completed! Best loss: {history["best_loss"]:.4f}')
     
-    # Step 4: Evaluate model on test set
-    logger.info("\n[Step 4/5] Evaluating model on test set...")
+    # Step 4: Evaluate
+    print("\n[4/5] Evaluating model...")
+    evaluator = DetectionEvaluator()
     
-    # Reload best model weights for evaluation
-    best_model_path = output_dir / "model" / "best_model.pt"
+    # Note: Faster R-CNN evaluation needs proper implementation
+    # For now, we'll skip detailed metrics
+    print('Note: Detailed mAP evaluation for Faster R-CNN requires additional implementation.')
+    print('Using training loss as proxy metric.')
     
-    if best_model_path.exists():
-        logger.info(f"Reloading best model weights from: {best_model_path}")
-        model.load(str(best_model_path))
-        logger.info("Best model loaded successfully")
-    else:
-        logger.warning("Best model file not found, using current model state")
+    metrics = {
+        'best_training_loss': float(history['best_loss']),
+        'note': 'Full mAP evaluation pending implementation'
+    }
     
-    # Run evaluation on test set
-    try:
-        from src.evaluation.detection_evaluator import DetectionEvaluator
-        
-        evaluator = DetectionEvaluator()
-        
-        # For torchvision models, we need custom evaluation
-        # This is a simplified version - you may want to enhance it
-        logger.info("Running test evaluation...")
-        
-        # Move model to eval mode
-        model.model.eval()
-        
-        # Simple evaluation loop
-        import torch
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model.to(device)
-        
-        all_predictions = []
-        all_ground_truths = []
-        
-        with torch.no_grad():
-            for images, targets in test_loader:
-                images = [img.to(device) for img in images]
-                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                
-                predictions = model(images)
-                
-                all_predictions.extend(predictions)
-                all_ground_truths.extend(targets)
-        
-        # Calculate metrics
-        map_metrics = trainer._calculate_map(all_predictions, all_ground_truths)
-        
-        logger.info("\n" + "=" * 80)
-        logger.info("TEST EVALUATION RESULTS")
-        logger.info("=" * 80)
-        logger.info(f"mAP@0.5: {map_metrics['map50']:.4f}")
-        # logger.info(f"mAP@0.5:0.95: {map_metrics['map50_95']:.4f}")  # Not available in simplified metrics
-        logger.info(f"Precision: {map_metrics['precision']:.4f}")
-        logger.info(f"Recall: {map_metrics['recall']:.4f}")
-        logger.info(f"True Positives: {map_metrics['true_positives']}")
-        logger.info(f"False Positives: {map_metrics['false_positives']}")
-        logger.info(f"False Negatives: {map_metrics['false_negatives']}")
-        
-        # Save evaluation results
-        eval_results = {
-            'test_map50': map_metrics['map50'],
-            # 'test_map50_95': map_metrics['map50_95'],  # Not available in simplified metrics
-            'test_precision': map_metrics['precision'],
-            'test_recall': map_metrics['recall'],
-            'test_true_positives': map_metrics['true_positives'],
-            'test_false_positives': map_metrics['false_positives'],
-            'test_false_negatives': map_metrics['false_negatives'],
-            'best_train_map50': trainer.best_map50,
-            'best_epoch': trainer.best_epoch
-        }
-        
-        eval_results_path = output_dir / "evaluation_results.yaml"
-        with open(eval_results_path, 'w') as f:
-            yaml.dump(eval_results, f)
-        
-        logger.info(f"Evaluation results saved to: {eval_results_path}")
-        
-    except Exception as e:
-        logger.error(f"Evaluation failed: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    # Save metrics
+    metrics_path = output_dir / 'evaluation' / 'evaluation_metrics.json'
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=2)
     
-    # Step 5: Generate summary report
-    logger.info("\n[Step 5/5] Generating summary report...")
-    
-    summary = f"""
-# Experiment 02: Faster R-CNN Detection Results
-
-## Model Configuration
-- Architecture: Faster R-CNN with ResNet50+FPN backbone
-- Number of classes: {dataset_config['nc']} (dog)
-- Input size: {model_config.get('min_size', 800)}x{model_config.get('max_size', 1333)}
-- Pretrained: {model_config['pretrained']}
-
-## Training Configuration
-- Optimizer: SGD with momentum (0.9)
-- Learning rate: {training_config['learning_rate']}
-- Batch size: {training_config['batch_size']} (effective: {training_config['batch_size'] * training_config['gradient_accumulation_steps']})
-- Epochs: {training_config['epochs']}
-- Weight decay: {training_config['weight_decay']}
-- AMP: {training_config['use_amp']}
-- Scheduler: Cosine annealing with {training_config['warmup_epochs']} warmup epochs
-
-## Dataset
-- Format: COCO JSON
-- Training samples: {len(train_loader.dataset)}
-- Validation samples: {len(val_loader.dataset)}
-- Test samples: {len(test_loader.dataset)}
-
-## Results
-- Best mAP@0.5 (validation): {trainer.best_map50:.4f} at epoch {trainer.best_epoch}
-- Test mAP@0.5: {map_metrics['map50']:.4f}
-
-## Key Characteristics
-- Two-stage detection architecture
-- High accuracy with slower inference speed
-- Region Proposal Network (RPN) generates candidate boxes
-- ROI pooling extracts features for classification and regression
-"""
-    
-    summary_path = output_dir / "EXPERIMENT_SUMMARY.md"
+    # Step 5: Save summary
+    print("\n[5/5] Saving experiment summary...")
+    summary_path = output_dir / 'experiment_summary.md'
     with open(summary_path, 'w') as f:
-        f.write(summary)
+        f.write(f'# Experiment 02: Faster R-CNN Baseline\n\n')
+        f.write(f'**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
+        f.write(f'## Configuration\n\n')
+        f.write(f'- Model: Faster R-CNN with ResNet50+FPN\n')
+        f.write(f'- Number of classes: {num_classes} ({len(CLASS_NAMES)} + background)\n')
+        f.write(f'- Class names: {", ".join(CLASS_NAMES)}\n')
+        f.write(f'- Image size: {FASTERRCNN_BASELINE_CONFIG["min_size"]}\n')
+        f.write(f'- Dataset: {DATA_ROOT}\n')
+        f.write(f'- Annotation format: {ANNOTATION_FORMAT}\n')
+        f.write(f'- Epochs: {EPOCHS}\n')
+        f.write(f'- Batch size: {BATCH_SIZE}\n')
+        f.write(f'- Learning rate: {LR}\n')
+        f.write(f'- Weight decay: 1e-4\n\n')
+        f.write(f'## Dataset Statistics\n\n')
+        f.write(f'- Train samples: {len(train_loader.dataset)}\n')
+        f.write(f'- Val samples: {len(val_loader.dataset)}\n')
+        f.write(f'- Test samples: {len(test_loader.dataset)}\n\n')
+        f.write(f'## Results\n\n')
+        f.write(f'- Best Training Loss: {history["best_loss"]:.4f}\n')
+        f.write(f'- Training completed: Yes\n')
+        f.write(f'- Full mAP evaluation: Pending implementation\n\n')
+        f.write(f'## Notes\n\n')
+        f.write(f'- Dataloader supports COCO, Pascal VOC, and YOLO formats\n')
+        f.write(f'- Training uses custom loop with Adam optimizer\n')
+        f.write(f'- Early stopping enabled (patience=10)\n')
     
-    logger.info(f"Summary report saved to: {summary_path}")
-    
-    logger.info("\n" + "=" * 80)
-    logger.info("EXPERIMENT COMPLETED SUCCESSFULLY")
-    logger.info("=" * 80)
-    logger.info(f"Results saved to: {output_dir}")
-    logger.info(f"Metrics: mAP@0.5={map_metrics['map50']:.4f}")
-    # logger.info(f"Metrics: mAP@0.5={map_metrics['map50']:.4f}, mAP@0.5:0.95={map_metrics['map50_95']:.4f}")
+    print(f'\n{"=" * 80}')
+    print(f'EXPERIMENT COMPLETED')
+    print(f'{"=" * 80}')
+    print(f'Results saved to: {output_dir}')
+    print(f'Summary: {summary_path}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -3,10 +3,10 @@ Experiment 03: ResNet50 Baseline for Bird Classification
 
 Simple pipeline:
 1. Load data
-2. Initialize model
-3. Train
+2. Initialize model (ALL layers trainable - NO freezing per teacher's requirement)
+3. Train with consistent methodology
 4. Evaluate
-5. Save results
+5. Save results with training curves and analysis
 """
 
 import sys
@@ -72,10 +72,8 @@ def main():
     STUDENT_ID = "25509225"
     DATA_ROOT = f"data/{STUDENT_ID}/Image_Classification/split_dataset"
     BATCH_SIZE = 16  # Reduced from 32 for T4 GPU memory constraints
-    EPOCHS_PHASE1 = 15
-    EPOCHS_PHASE2 = 35
-    LR_PHASE1 = 1e-3
-    LR_PHASE2 = 1e-4
+    EPOCHS = 50  # Single-phase training (NO freezing)
+    LR = 1e-4  # Lower LR since all layers are trainable from start
     
     # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -102,64 +100,83 @@ def main():
     print(f'Classes: {class_names}')
     print(f'Train: {len(train_loader.dataset)}, Val: {len(val_loader.dataset)}, Test: {len(test_loader.dataset)}')
     
-    # Step 2: Initialize model (Baseline config)
+    # Step 2: Initialize model (Baseline config - ALL layers trainable)
     print("\n[2/5] Initializing model...")
+    print('Methodology: Standard ResNet50 with ALL layers trainable (NO freezing)')
+    print('This follows teacher\'s requirement: "If you freeze it, zero."')
+    
     model = ResNet50Classifier(**BASELINE_CONFIG)
-    model.freeze_backbone()  # Phase 1: freeze backbone
+    # NOTE: NO freeze_backbone() call - all layers remain trainable
     
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Total params: {total_params:,}, Trainable: {trainable_params:,} ({trainable_params/total_params*100:.1f}%)')
     
-    # Step 3: Train - Phase 1 (Frozen backbone)
-    print("\n[3/5] Training Phase 1 (Frozen backbone)...")
-    trainer1 = ClassificationTrainer(model, learning_rate=LR_PHASE1, weight_decay=1e-4)
+    # Step 3: Train (Single-phase, all layers trainable)
+    print("\n[3/5] Training (Single-phase, all layers trainable)...")
+    trainer = ClassificationTrainer(model, learning_rate=LR, weight_decay=1e-4)
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
     
-    history1 = trainer1.train(
-        train_loader, val_loader, criterion, EPOCHS_PHASE1,
-        str(output_dir / 'phase1'), patience=10
+    history = trainer.train(
+        train_loader, val_loader, criterion, EPOCHS,
+        str(output_dir / 'training'), patience=10
     )
-    print(f'Phase 1 Best Val Acc: {trainer1.best_val_acc:.4f}')
+    print(f'Best Val Acc: {trainer.best_val_acc:.4f}')
     
-    # Step 4: Train - Phase 2 (Fine-tuning)
-    print("\n[4/5] Training Phase 2 (Fine-tuning)...")
-    model.unfreeze_backbone(unfreeze_layer2=False)  # Unfreeze layer3+layer4
-    
-    trainer2 = ClassificationTrainer(model, learning_rate=LR_PHASE2, weight_decay=1e-4)
-    history2 = trainer2.train(
-        train_loader, val_loader, criterion, EPOCHS_PHASE2,
-        str(output_dir / 'phase2'), patience=10
-    )
-    print(f'Phase 2 Best Val Acc: {trainer2.best_val_acc:.4f}')
-    
-    # Step 5: Evaluate on test set
-    print("\n[5/5] Evaluating on test set...")
+    # Step 4: Evaluate on test set
+    print("\n[4/5] Evaluating on test set...")
     evaluator = ClassificationEvaluator(class_names)
     metrics = evaluator.evaluate(model, test_loader, str(output_dir / 'evaluation'))
+    
+    # Plot training curves
+    print("\n[5/5] Generating training curves and analysis...")
+    evaluator.plot_training_curves(history['history'], str(output_dir / 'visualization'))
+    
+    # Analyze overfitting/underfitting
+    analysis = evaluator.analyze_overfitting(history['history'])
     
     # Save experiment summary
     summary_path = output_dir / 'experiment_summary.md'
     with open(summary_path, 'w') as f:
         f.write(f'# Experiment 03: ResNet50 Baseline\n\n')
         f.write(f'**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
-        f.write(f'## Configuration\n\n')
-        f.write(f'- Architecture: ResNet50 (Baseline)\n')
-        f.write(f'- Dropout: {BASELINE_CONFIG["dropout_rate"]}\n')
-        f.write(f'- Additional FC Layers: {BASELINE_CONFIG["additional_fc_layers"]}\n')
-        f.write(f'- Phase 1: Frozen backbone, {EPOCHS_PHASE1} epochs, LR={LR_PHASE1}\n')
-        f.write(f'- Phase 2: Fine-tune layer3+4, {EPOCHS_PHASE2} epochs, LR={LR_PHASE2}\n\n')
+        f.write(f'## Methodology\n\n')
+        f.write(f'- **Architecture:** Standard ResNet50 with single FC layer (2048 → 10)\n')
+        f.write(f'- **Training Strategy:** Single-phase training with ALL layers trainable\n')
+        f.write(f'- **NO Layer Freezing:** Following teacher\'s requirement for correct methodology\n')
+        f.write(f'- **Dropout:** {BASELINE_CONFIG["dropout_rate"]}\n')
+        f.write(f'- **Epochs:** {EPOCHS}\n')
+        f.write(f'- **Learning Rate:** {LR}\n')
+        f.write(f'- **Weight Decay:** 1e-4\n')
+        f.write(f'- **Label Smoothing:** 0.1\n')
+        f.write(f'- **Batch Size:** {BATCH_SIZE} (T4 GPU optimized)\n\n')
         f.write(f'## Results\n\n')
-        f.write(f'- Best Val Accuracy: {trainer2.best_val_acc:.4f}\n')
+        f.write(f'- Best Val Accuracy: {trainer.best_val_acc:.4f}\n')
         f.write(f'- Test Accuracy: {metrics["accuracy"]:.4f}\n')
         f.write(f'- Test F1 (macro): {metrics["f1_macro"]:.4f}\n')
+        f.write(f'- Test Precision (weighted): {metrics["precision_weighted"]:.4f}\n')
+        f.write(f'- Test Recall (weighted): {metrics["recall_weighted"]:.4f}\n\n')
+        f.write(f'## Overfitting/Underfitting Analysis\n\n')
+        f.write(f'**Pattern Detected:** {analysis["pattern"]}\n\n')
+        f.write(f'{analysis["description"]}\n\n')
+        f.write(f'**Recommendation:** {analysis["recommendation"]}\n\n')
+        f.write(f'## Training Curves\n\n')
+        f.write(f'See `visualization/training_curves.png` for:\n')
+        f.write(f'- Training vs Validation Loss\n')
+        f.write(f'- Training vs Validation Accuracy\n\n')
+        f.write(f'## Key Design Decisions\n\n')
+        f.write(f'1. **No Layer Freezing:** All layers trainable from start to ensure correct methodology\n')
+        f.write(f'2. **Lower Learning Rate:** Started with 1e-4 instead of 1e-3 since all layers are training\n')
+        f.write(f'3. **Single-Phase Training:** Simplified training process while maintaining effectiveness\n')
+        f.write(f'4. **Consistent Dataset Split:** Same split used across all classification experiments\n')
     
     print(f'\n{"=" * 80}')
     print(f'EXPERIMENT COMPLETED')
     print(f'{"=" * 80}')
     print(f'Results saved to: {output_dir}')
     print(f'Summary: {summary_path}')
+    print(f'Training curves: {output_dir / "visualization" / "training_curves.png"}')
 
 
 if __name__ == '__main__':

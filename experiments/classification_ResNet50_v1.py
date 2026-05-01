@@ -5,10 +5,12 @@ Enhanced multi-layer FC head with stronger regularization.
 All layers trainable (NO freezing) - following teacher's methodology requirements.
 
 Usage:
-    python experiments/classification_ResNet50_v1.py [--pretrained True/False]
+    python experiments/classification_ResNet50_v1.py [--pretrained True/False] [--dataAugmentation none/standard/enhanced]
     
     --pretrained: Use pretrained ImageNet weights (default: True from config)
                   Set to False to train from scratch
+    --dataAugmentation: Data augmentation strategy (default: 'none')
+                        Options: 'none', 'standard', 'enhanced'
 """
 
 import sys
@@ -22,7 +24,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from src.models.ResNet50ClassifierModel import ResNet50Classifier, CUSTOMIZED_V1_CONFIG
 from src.training.classification_trainer import ClassificationTrainer, TRAINING_CONFIG_V1
-from src.data_processing.ClassificationDataLoader import create_enhanced_dataloaders
+from src.data_processing.ClassificationDataLoader import create_classification_dataloaders
 from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 
@@ -33,6 +35,9 @@ def main():
     parser = argparse.ArgumentParser(description='ResNet50 Customized v1 Classification Experiment')
     parser.add_argument('--pretrained', type=str, default=None, 
                        help='Use pretrained weights: True, False, or None (use config default)')
+    parser.add_argument('--dataAugmentation', type=str, default='none',
+                       choices=['none', 'standard', 'enhanced'],
+                       help='Data augmentation strategy (default: none)')
     args = parser.parse_args()
     
     print("=" * 80)
@@ -62,12 +67,19 @@ def main():
     
     # Step 1: Load data
     print("\n[1/5] Loading data...")
-    train_loader, val_loader, test_loader, class_names = create_enhanced_dataloaders(
-        DATA_ROOT, batch_size=BATCH_SIZE
+    train_loader, val_loader, test_loader, class_names = create_classification_dataloaders(
+        DATA_ROOT, batch_size=BATCH_SIZE, augmentation_type=args.dataAugmentation
     )
     print(f'Classes: {class_names}')
     print(f'Train: {len(train_loader.dataset)}, Val: {len(val_loader.dataset)}, Test: {len(test_loader.dataset)}')
-    print('Data augmentation: Enhanced (Rotation 20°, ColorJitter 0.3+hue, RandomAffine)')
+    
+    # Print augmentation info
+    aug_descriptions = {
+        'none': 'No augmentation (basic preprocessing only)',
+        'standard': 'Standard (Rotation 15°, ColorJitter 0.2)',
+        'enhanced': 'Enhanced (Rotation 20°, ColorJitter 0.3+hue, RandomAffine)'
+    }
+    print(f'Data augmentation: {aug_descriptions[args.dataAugmentation]}')
     
     # Step 2: Initialize model
     print("\n[2/5] Initializing customized model...")

@@ -2,6 +2,7 @@
 Classification Trainer
 
 Handles the training loop: forward pass, backward pass, optimization, and validation.
+All training hyperparameters are managed through TrainingConfig objects.
 """
 
 import torch
@@ -9,7 +10,97 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from pathlib import Path
 from tqdm import tqdm
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
+import csv
+from dataclasses import dataclass
+
+
+@dataclass
+class TrainingConfig:
+    """
+    Complete training configuration.
+    
+    All training hyperparameters are centralized here for clarity and reproducibility.
+    """
+    # Optimizer settings
+    learning_rate: float = 1e-4
+    weight_decay: float = 1e-4
+    optimizer_type: str = 'adamw'  # 'adamw', 'adam', 'sgd'
+    
+    # Training schedule
+    epochs: int = 50
+    use_scheduler: bool = False
+    scheduler_type: str = 'reduce_on_plateau'  # 'reduce_on_plateau', 'step', 'cosine'
+    scheduler_patience: int = 5  # For ReduceLROnPlateau
+    scheduler_factor: float = 0.5  # LR reduction factor
+    
+    # Early stopping
+    use_early_stopping: bool = True
+    early_stopping_patience: int = 10
+    
+    # Loss function
+    label_smoothing: float = 0.1
+    use_class_weights: bool = False
+    
+    # Mixed precision
+    use_amp: bool = True
+    
+    # Description
+    description: str = 'Default training configuration'
+
+
+# Training configurations for 4 experiments
+TRAINING_CONFIG_BASELINE = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=50,
+    use_scheduler=False,
+    use_early_stopping=True,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Baseline training with moderate regularization'
+)
+
+TRAINING_CONFIG_V1 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=5e-3,
+    optimizer_type='adamw',
+    epochs=60,
+    use_scheduler=False,
+    use_early_stopping=True,
+    early_stopping_patience=12,
+    label_smoothing=0.15,
+    use_amp=True,
+    description='Enhanced FC head with stronger regularization (higher weight decay & label smoothing)'
+)
+
+TRAINING_CONFIG_V2 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=5e-3,
+    optimizer_type='adamw',
+    epochs=60,
+    use_scheduler=False,
+    use_early_stopping=True,
+    early_stopping_patience=12,
+    label_smoothing=0.15,
+    use_amp=True,
+    description='CNN backbone modification (add conv blocks) with enhanced FC head and strong regularization'
+)
+
+TRAINING_CONFIG_V3 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=50,
+    use_scheduler=False,
+    use_early_stopping=True,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Reduced depth backbone (remove layer3) with standard regularization'
+)
 
 
 class ClassificationTrainer:
@@ -19,35 +110,77 @@ class ClassificationTrainer:
     Responsibilities:
     - Training loop with optimizer
     - Validation loop
-    - Learning rate scheduling
     - Model checkpointing
+    - CSV logging of training history
+    
+    All hyperparameters are controlled by TrainingConfig.
     """
     
-    def __init__(self, model: nn.Module, learning_rate: float = 1e-3, 
-                 weight_decay: float = 1e-4, use_amp: bool = True):
+    def __init__(self, model: nn.Module, config: TrainingConfig):
         """
-        Initialize trainer.
+        Initialize trainer with complete configuration.
         
         Args:
             model: PyTorch model to train
-            learning_rate: Initial learning rate
-            weight_decay: L2 regularization
-            use_amp: Use mixed precision training
+            config: Complete training configuration
         """
         self.model = model
+        self.config = config
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.use_amp = use_amp
-        self.scaler = torch.cuda.amp.GradScaler() if use_amp else None
         
         # Move model to device
         self.model = self.model.to(self.device)
         
-        # Setup optimizer
-        self.optimizer = torch.optim.AdamW(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=learning_rate,
-            weight_decay=weight_decay
-        )
+        # Setup optimizer based on config
+        trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+        
+        if config.optimizer_type == 'adamw':
+            self.optimizer = torch.optim.AdamW(
+                trainable_params,
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay
+            )
+        elif config.optimizer_type == 'adam':
+            self.optimizer = torch.optim.Adam(
+                trainable_params,
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay
+            )
+        elif config.optimizer_type == 'sgd':
+            self.optimizer = torch.optim.SGD(
+                trainable_params,
+                lr=config.learning_rate,
+                momentum=0.9,
+                weight_decay=config.weight_decay
+            )
+        else:
+            raise ValueError(f"Unknown optimizer type: {config.optimizer_type}")
+        
+        # Setup mixed precision
+        self.scaler = torch.cuda.amp.GradScaler() if config.use_amp else None
+        
+        # Setup scheduler if enabled
+        self.scheduler = None
+        if config.use_scheduler:
+            if config.scheduler_type == 'reduce_on_plateau':
+                self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    self.optimizer,
+                    mode='min',
+                    factor=config.scheduler_factor,
+                    patience=config.scheduler_patience,
+                    verbose=True
+                )
+            elif config.scheduler_type == 'step':
+                self.scheduler = torch.optim.lr_scheduler.StepLR(
+                    self.optimizer,
+                    step_size=10,
+                    gamma=0.5
+                )
+            elif config.scheduler_type == 'cosine':
+                self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                    self.optimizer,
+                    T_max=config.epochs
+                )
         
         # Training state
         self.best_val_acc = 0.0
@@ -78,7 +211,7 @@ class ClassificationTrainer:
             targets = targets.to(self.device)
             
             # Forward pass
-            if self.use_amp:
+            if self.config.use_amp:
                 with torch.cuda.amp.autocast():
                     outputs = self.model(inputs)
                     loss = criterion(outputs, targets)
@@ -132,7 +265,7 @@ class ClassificationTrainer:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 
-                if self.use_amp:
+                if self.config.use_amp:
                     with torch.cuda.amp.autocast():
                         outputs = self.model(inputs)
                         loss = criterion(outputs, targets)
@@ -151,19 +284,15 @@ class ClassificationTrainer:
         return avg_loss, accuracy
     
     def train(self, train_loader: DataLoader, val_loader: DataLoader,
-             criterion: nn.Module, epochs: int, output_dir: str,
-             scheduler=None, patience: int = 10) -> Dict:
+             criterion: nn.Module, output_dir: str) -> Dict:
         """
-        Full training loop.
+        Full training loop using configuration from self.config.
         
         Args:
             train_loader: Training data loader
             val_loader: Validation data loader
             criterion: Loss function
-            epochs: Number of epochs
-            output_dir: Directory to save checkpoints
-            scheduler: Learning rate scheduler (optional)
-            patience: Early stopping patience
+            output_dir: Directory to save checkpoints and logs
             
         Returns:
             Training history dictionary
@@ -171,77 +300,95 @@ class ClassificationTrainer:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        early_stop_counter = 0
+        # Initialize CSV file for training history
+        csv_path = output_path / 'training_history.csv'
+        csv_file = open(csv_path, 'w', newline='')
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc', 'lr'])
         
-        for epoch in range(epochs):
-            # Train
-            train_loss, train_acc = self.train_epoch(train_loader, criterion, epoch)
-            
-            # Validate
-            val_loss, val_acc = self.validate(val_loader, criterion)
-            
-            # Update scheduler
-            if scheduler is not None:
-                scheduler.step()
-            
-            # Record history
-            history_entry = {
-                'epoch': epoch + 1,
-                'train_loss': train_loss,
-                'train_acc': train_acc,
-                'val_loss': val_loss,
-                'val_acc': val_acc,
-                'lr': self.optimizer.param_groups[0]['lr']
-            }
-            self.training_history.append(history_entry)
-            
-            # Print progress
-            print(f'Epoch {epoch+1}/{epochs} | '
-                  f'Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | '
-                  f'Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}')
-            
-            # Save best model
-            if val_acc > self.best_val_acc:
-                self.best_val_acc = val_acc
-                early_stop_counter = 0
+        early_stop_counter = 0
+        epochs = self.config.epochs
+        
+        print(f'\nTraining Configuration:')
+        print(f'  - Epochs: {epochs}')
+        print(f'  - Learning Rate: {self.config.learning_rate}')
+        print(f'  - Weight Decay: {self.config.weight_decay}')
+        print(f'  - Optimizer: {self.config.optimizer_type.upper()}')
+        print(f'  - Label Smoothing: {self.config.label_smoothing}')
+        print(f'  - Early Stopping: {"Enabled" if self.config.use_early_stopping else "Disabled"} (patience={self.config.early_stopping_patience})')
+        print(f'  - Scheduler: {"Enabled" if self.config.use_scheduler else "Disabled"}')
+        print(f'  - Mixed Precision: {"Enabled" if self.config.use_amp else "Disabled"}')
+        print(f'  - Description: {self.config.description}\n')
+        
+        try:
+            for epoch in range(epochs):
+                # Train
+                train_loss, train_acc = self.train_epoch(train_loader, criterion, epoch)
                 
-                checkpoint_path = output_path / 'best_model.pth'
-                torch.save({
-                    'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dict(),
+                # Validate
+                val_loss, val_acc = self.validate(val_loader, criterion)
+                
+                # Update scheduler
+                if self.scheduler is not None:
+                    if self.config.scheduler_type == 'reduce_on_plateau':
+                        self.scheduler.step(val_loss)
+                    else:
+                        self.scheduler.step()
+                
+                # Get current learning rate
+                current_lr = self.optimizer.param_groups[0]['lr']
+                
+                # Record history
+                history_entry = {
+                    'epoch': epoch + 1,
+                    'train_loss': train_loss,
+                    'train_acc': train_acc,
+                    'val_loss': val_loss,
                     'val_acc': val_acc,
-                    'epoch': epoch
-                }, checkpoint_path)
-                print(f'  ✓ Best model saved (Val Acc: {val_acc:.4f})')
-            else:
-                early_stop_counter += 1
-            
-            # Early stopping
-            if early_stop_counter >= patience:
-                print(f'\nEarly stopping at epoch {epoch+1}')
-                break
+                    'lr': current_lr
+                }
+                self.training_history.append(history_entry)
+                
+                # Write to CSV
+                csv_writer.writerow([
+                    epoch + 1,
+                    f'{train_loss:.6f}',
+                    f'{train_acc:.6f}',
+                    f'{val_loss:.6f}',
+                    f'{val_acc:.6f}',
+                    f'{current_lr:.6f}'
+                ])
+                csv_file.flush()  # Ensure data is written
+                
+                # Print progress
+                print(f'Epoch {epoch+1}/{epochs} | '
+                      f'Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f} | '
+                      f'Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}')
+                
+                # Save best model
+                if val_acc > self.best_val_acc:
+                    self.best_val_acc = val_acc
+                    early_stop_counter = 0
+                    
+                    checkpoint_path = output_path / 'best_model.pth'
+                    torch.save({
+                        'model_state_dict': self.model.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        'val_acc': val_acc,
+                        'epoch': epoch,
+                        'config': self.config
+                    }, checkpoint_path)
+                    print(f'  ✓ Best model saved (Val Acc: {val_acc:.4f})')
+                else:
+                    early_stop_counter += 1
+                
+                # Early stopping
+                if self.config.use_early_stopping and early_stop_counter >= self.config.early_stopping_patience:
+                    print(f'\nEarly stopping at epoch {epoch+1}')
+                    break
+        finally:
+            csv_file.close()
+        
+        print(f'\n✓ Training history saved to: {csv_path}')
         
         return {'history': self.training_history, 'best_val_acc': self.best_val_acc}
-
-if __name__ == "__main__":
-    # Example usage
-    from src.models.classification_model import ResNet50Classifier, BASELINE_CLASSIFICATION_CONFIG
-    
-    model_config = BASELINE_CLASSIFICATION_CONFIG
-    training_config = {
-        'learning_rate': 0.001,
-        'batch_size': 32,
-        'epochs': 30,
-        'optimizer': 'adam',
-        'weight_decay': 1e-4,
-        'early_stopping_patience': 7,
-        'use_amp': True,
-        'gradient_accumulation_steps': 1,
-        'label_smoothing': 0.1,
-        'class_weighting': True
-    }
-    
-    trainer = ClassificationTrainer(model_config, training_config)
-    model = ResNet50Classifier(model_config)
-    
-    # trainer.train(model, X_train, y_train, X_valid, y_valid, "outputs/test_run")

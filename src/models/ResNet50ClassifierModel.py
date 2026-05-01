@@ -225,8 +225,8 @@ BASELINE_CONFIG = {
     'modify_backbone': False
 }
 
-# Customized v1: Enhanced FC head only (NOT sufficient per teacher's requirements)
-CUSTOMIZED_CONFIG = {
+# Customized v1: Enhanced FC head with stronger regularization
+CUSTOMIZED_V1_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.7,
     'pretrained': True,

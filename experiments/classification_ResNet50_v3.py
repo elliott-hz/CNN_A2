@@ -4,11 +4,18 @@ Experiment: ResNet50 Customized v3 Classification
 Alternative CNN customization: Removed layer3 to reduce model depth.
 Standard single FC head with moderate regularization.
 All layers trainable (NO freezing) - following teacher's methodology requirements.
+
+Usage:
+    python experiments/classification_ResNet50_v3.py [--pretrained True/False]
+    
+    --pretrained: Use pretrained ImageNet weights (default: True from config)
+                  Set to False to train from scratch
 """
 
 import sys
 from pathlib import Path
 import torch
+import argparse
 from datetime import datetime
 
 # Add project root to path
@@ -22,6 +29,12 @@ from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 def main():
     """Run Customized v3 Experiment."""
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='ResNet50 Customized v3 Classification Experiment')
+    parser.add_argument('--pretrained', type=str, default=None, 
+                       help='Use pretrained weights: True, False, or None (use config default)')
+    args = parser.parse_args()
     
     print("=" * 80)
     print("EXPERIMENT: ResNet50 Customized v3")
@@ -59,13 +72,25 @@ def main():
     
     # Step 2: Initialize model
     print("\n[2/5] Initializing customized model...")
+    
+    # Handle pretrained parameter
+    model_config = CUSTOMIZED_V3_CONFIG.copy()
+    if args.pretrained is not None:
+        model_config['pretrained'] = args.pretrained.lower() == 'true'
+    
     print('TRUE CNN Customizations:')
     print('  1. Backbone modification: Removed layer3 (reduced depth)')
     print('  2. Standard FC head: 2048 → 10')
     print('  3. Moderate dropout: 0.5')
     print('  4. ALL layers trainable (NO freezing)')
     
-    model = ResNet50Classifier(**CUSTOMIZED_V3_CONFIG)
+    if model_config['pretrained']:
+        print('Pretrained: YES (ImageNet weights)')
+    else:
+        print('Pretrained: NO (Training from scratch)')
+        print('Note: Will require more epochs and higher learning rate initially')
+    
+    model = ResNet50Classifier(**model_config)
     
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -100,7 +125,7 @@ def main():
     # Generate comprehensive summary
     evaluator.generate_experiment_summary(
         experiment_name=experiment_name,
-        model_config=CUSTOMIZED_V3_CONFIG,
+        model_config=model_config,
         training_config=TRAINING_CONFIG_V3,
         trainer_metrics={'best_val_acc': trainer.best_val_acc},
         evaluation_metrics=metrics,

@@ -3,11 +3,18 @@ Experiment: ResNet50 Baseline Classification
 
 Standard ResNet50 with single FC layer.
 All layers trainable (NO freezing) - following teacher's methodology requirements.
+
+Usage:
+    python experiments/classification_ResNet50_baseline.py [--pretrained True/False]
+    
+    --pretrained: Use pretrained ImageNet weights (default: True from config)
+                  Set to False to train from scratch
 """
 
 import sys
 from pathlib import Path
 import torch
+import argparse
 from datetime import datetime
 
 # Add project root to path
@@ -21,6 +28,12 @@ from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 def main():
     """Run Baseline Experiment."""
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='ResNet50 Baseline Classification Experiment')
+    parser.add_argument('--pretrained', type=str, default=None, 
+                       help='Use pretrained weights: True, False, or None (use config default)')
+    args = parser.parse_args()
     
     print("=" * 80)
     print("EXPERIMENT: ResNet50 Baseline")
@@ -58,9 +71,21 @@ def main():
     
     # Step 2: Initialize model
     print("\n[2/5] Initializing model...")
-    print('Architecture: Standard ResNet50 with ALL layers trainable (NO freezing)')
     
-    model = ResNet50Classifier(**BASELINE_CONFIG)
+    # Handle pretrained parameter
+    model_config = BASELINE_CONFIG.copy()
+    if args.pretrained is not None:
+        model_config['pretrained'] = args.pretrained.lower() == 'true'
+    
+    if model_config['pretrained']:
+        print('Architecture: Standard ResNet50 with ALL layers trainable (NO freezing)')
+        print('Pretrained: YES (ImageNet weights)')
+    else:
+        print('Architecture: Standard ResNet50 with ALL layers trainable (NO freezing)')
+        print('Pretrained: NO (Training from scratch)')
+        print('Note: Will require more epochs and higher learning rate initially')
+    
+    model = ResNet50Classifier(**model_config)
     
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -95,7 +120,7 @@ def main():
     # Generate comprehensive summary (abstracted in evaluator)
     evaluator.generate_experiment_summary(
         experiment_name=experiment_name,
-        model_config=BASELINE_CONFIG,
+        model_config=model_config,
         training_config=TRAINING_CONFIG_BASELINE,
         trainer_metrics={'best_val_acc': trainer.best_val_acc},
         evaluation_metrics=metrics,

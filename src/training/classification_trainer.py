@@ -114,22 +114,6 @@ TRAINING_CONFIG_V3 = TrainingConfig(
     description='Reduced depth backbone (remove layer3) with standard regularization and dynamic LR reduction (extended training)'
 )
 
-# V4: Same as baseline but trained from scratch (requires longer training)
-TRAINING_CONFIG_V4 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Higher initial LR for training from scratch
-    weight_decay=1e-4,
-    optimizer_type='adamw',
-    epochs=200,                              # ↑ Even more epochs for training from scratch
-    use_scheduler=True,
-    scheduler_type='reduce_on_plateau',
-    scheduler_patience=10,
-    scheduler_factor=0.5,
-    use_early_stopping=True,
-    early_stopping_patience=40,              # ↑ Longer patience for scratch training
-    label_smoothing=0.1,
-    use_amp=True,
-    description='Baseline architecture trained from scratch (no pretrained weights) with higher initial LR and extended training'
-)
 
 class ClassificationTrainer:
     """

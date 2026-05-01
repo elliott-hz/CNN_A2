@@ -54,66 +54,82 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=50,
-    use_scheduler=True,                     # ✓ Enable scheduler
+    epochs=150,                              # ↑ Increased from 50 to 150
+    use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=5,
+    scheduler_patience=10,                   # ↑ Increased from 5 to 10
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=10,
+    early_stopping_patience=30,              # ↑ Increased from 10 to 30
     label_smoothing=0.1,
     use_amp=True,
-    description='Baseline training with moderate regularization and dynamic LR reduction'
+    description='Baseline training with moderate regularization and dynamic LR reduction (extended training)'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=5e-3,
     optimizer_type='adamw',
-    epochs=60,
-    use_scheduler=True,                     # ✓ Enable scheduler
+    epochs=150,                              # ↑ Increased from 60 to 150
+    use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=5,
+    scheduler_patience=10,                   # ↑ Increased from 5 to 10
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=12,
+    early_stopping_patience=30,              # ↑ Increased from 12 to 30
     label_smoothing=0.15,
     use_amp=True,
-    description='Enhanced FC head with stronger regularization and dynamic LR reduction'
+    description='Enhanced FC head with stronger regularization and dynamic LR reduction (extended training)'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=5e-3,
     optimizer_type='adamw',
-    epochs=60,
-    use_scheduler=True,                     # ✓ Enable scheduler
+    epochs=150,                              # ↑ Increased from 60 to 150
+    use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=5,
+    scheduler_patience=10,                   # ↑ Increased from 5 to 10
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=12,
+    early_stopping_patience=30,              # ↑ Increased from 12 to 30
     label_smoothing=0.15,
     use_amp=True,
-    description='CNN backbone modification (add conv blocks) with enhanced FC head, strong regularization and dynamic LR reduction'
+    description='CNN backbone modification (add conv blocks) with enhanced FC head, strong regularization and dynamic LR reduction (extended training)'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=50,
-    use_scheduler=True,                     # ✓ Enable scheduler
+    epochs=150,                              # ↑ Increased from 50 to 150
+    use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=5,
+    scheduler_patience=10,                   # ↑ Increased from 5 to 10
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=10,
+    early_stopping_patience=30,              # ↑ Increased from 10 to 30
     label_smoothing=0.1,
     use_amp=True,
-    description='Reduced depth backbone (remove layer3) with standard regularization and dynamic LR reduction'
+    description='Reduced depth backbone (remove layer3) with standard regularization and dynamic LR reduction (extended training)'
 )
 
+# V4: Same as baseline but trained from scratch (requires longer training)
+TRAINING_CONFIG_V4 = TrainingConfig(
+    learning_rate=1e-3,                      # ↑ Higher initial LR for training from scratch
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=200,                              # ↑ Even more epochs for training from scratch
+    use_scheduler=True,
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=10,
+    scheduler_factor=0.5,
+    use_early_stopping=True,
+    early_stopping_patience=40,              # ↑ Longer patience for scratch training
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Baseline architecture trained from scratch (no pretrained weights) with higher initial LR and extended training'
+)
 
 class ClassificationTrainer:
     """

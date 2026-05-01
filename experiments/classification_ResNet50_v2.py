@@ -71,9 +71,13 @@ def main():
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'\nTotal params: {total_params:,}, Trainable: {trainable_params:,} ({trainable_params/total_params*100:.1f}%)')
     
+    # Print detailed model architecture
+    trainer_temp = ClassificationTrainer(model, config=TRAINING_CONFIG_V2)
+    trainer_temp.print_model_summary()
+    
     # Step 3: Train
     print("\n[3/5] Training...")
-    trainer = ClassificationTrainer(model, config=TRAINING_CONFIG_V2)
+    trainer = trainer_temp  # Reuse the trainer we created for model summary
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=TRAINING_CONFIG_V2.label_smoothing)
     
     history = trainer.train(

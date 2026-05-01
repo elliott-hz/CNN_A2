@@ -55,12 +55,15 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     weight_decay=1e-4,
     optimizer_type='adamw',
     epochs=50,
-    use_scheduler=False,
+    use_scheduler=True,                     # ✓ Enable scheduler
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=5,
+    scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=10,
     label_smoothing=0.1,
     use_amp=True,
-    description='Baseline training with moderate regularization'
+    description='Baseline training with moderate regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
@@ -68,12 +71,15 @@ TRAINING_CONFIG_V1 = TrainingConfig(
     weight_decay=5e-3,
     optimizer_type='adamw',
     epochs=60,
-    use_scheduler=False,
+    use_scheduler=True,                     # ✓ Enable scheduler
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=5,
+    scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=12,
     label_smoothing=0.15,
     use_amp=True,
-    description='Enhanced FC head with stronger regularization (higher weight decay & label smoothing)'
+    description='Enhanced FC head with stronger regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
@@ -81,12 +87,15 @@ TRAINING_CONFIG_V2 = TrainingConfig(
     weight_decay=5e-3,
     optimizer_type='adamw',
     epochs=60,
-    use_scheduler=False,
+    use_scheduler=True,                     # ✓ Enable scheduler
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=5,
+    scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=12,
     label_smoothing=0.15,
     use_amp=True,
-    description='CNN backbone modification (add conv blocks) with enhanced FC head and strong regularization'
+    description='CNN backbone modification (add conv blocks) with enhanced FC head, strong regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
@@ -94,12 +103,15 @@ TRAINING_CONFIG_V3 = TrainingConfig(
     weight_decay=1e-4,
     optimizer_type='adamw',
     epochs=50,
-    use_scheduler=False,
+    use_scheduler=True,                     # ✓ Enable scheduler
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=5,
+    scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=10,
     label_smoothing=0.1,
     use_amp=True,
-    description='Reduced depth backbone (remove layer3) with standard regularization'
+    description='Reduced depth backbone (remove layer3) with standard regularization and dynamic LR reduction'
 )
 
 
@@ -112,6 +124,7 @@ class ClassificationTrainer:
     - Validation loop
     - Model checkpointing
     - CSV logging of training history
+    - Model structure visualization
     
     All hyperparameters are controlled by TrainingConfig.
     """
@@ -186,6 +199,99 @@ class ClassificationTrainer:
         self.best_val_acc = 0.0
         self.training_history = []
     
+    def print_model_summary(self):
+        """
+        Print detailed model architecture summary.
+        
+        Shows each layer's name, input/output shapes, and parameter count.
+        """
+        print("\n" + "="*80)
+        print("MODEL ARCHITECTURE SUMMARY")
+        print("="*80)
+        
+        # Create a dummy input to trace shapes
+        batch_size = 1
+        channels = 3
+        height = 224
+        width = 224
+        dummy_input = torch.randn(batch_size, channels, height, width).to(self.device)
+        
+        # Collect layer information
+        layer_info = []
+        total_params = 0
+        trainable_params = 0
+        
+        def register_hook(module):
+            def hook(module, input, output):
+                class_name = str(module.__class__.__name__)
+                
+                # Skip containers
+                if 'Sequential' in class_name or 'ModuleList' in class_name:
+                    return
+                
+                # Get module name (use _get_name if available, else use type)
+                if hasattr(module, '_get_name'):
+                    module_name = module._get_name()
+                else:
+                    module_name = class_name
+                
+                # Count parameters
+                module_params = sum(p.numel() for p in module.parameters())
+                module_trainable = sum(p.numel() for p in module.parameters() if p.requires_grad)
+                
+                # Get input/output shapes
+                if isinstance(input, tuple):
+                    input_shape = list(input[0].size())
+                else:
+                    input_shape = list(input.size())
+                
+                if isinstance(output, tuple):
+                    output_shape = list(output[0].size())
+                else:
+                    output_shape = list(output.size())
+                
+                layer_info.append({
+                    'name': module_name,
+                    'input_shape': input_shape,
+                    'output_shape': output_shape,
+                    'params': module_params,
+                    'trainable': module_trainable
+                })
+            
+            if not list(module.children()):
+                module.register_forward_hook(hook)
+        
+        # Register hooks
+        self.model.apply(register_hook)
+        
+        # Forward pass to trigger hooks
+        with torch.no_grad():
+            _ = self.model(dummy_input)
+        
+        # Print header
+        print(f"\n{'Layer Name':<30} {'Input Shape':<20} {'Output Shape':<20} {'Params':<12} {'Trainable':<12}")
+        print("-"*80)
+        
+        # Print each layer
+        for info in layer_info:
+            input_str = f"[{', '.join(map(str, info['input_shape']))}]"
+            output_str = f"[{', '.join(map(str, info['output_shape']))}]"
+            params_str = f"{info['params']:,}"
+            trainable_str = f"{info['trainable']:,}"
+            
+            print(f"{info['name']:<30} {input_str:<20} {output_str:<20} {params_str:<12} {trainable_str:<12}")
+            
+            total_params += info['params']
+            trainable_params += info['trainable']
+        
+        # Print summary
+        print("-"*80)
+        print(f"\nTotal Parameters: {total_params:,}")
+        print(f"Trainable Parameters: {trainable_params:,}")
+        print(f"Non-trainable Parameters: {total_params - trainable_params:,}")
+        print(f"Model Size (approx): {total_params * 4 / (1024**2):.2f} MB")
+        print("="*80 + "\n")
+
     def train_epoch(self, train_loader: DataLoader, criterion: nn.Module, 
                    epoch: int) -> Tuple[float, float]:
         """

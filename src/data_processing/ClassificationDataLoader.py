@@ -15,7 +15,7 @@ def create_classification_dataloaders(
     data_root: str,
     batch_size: int = 16,
     num_workers: int = 2,
-    augmentation_type: str = 'standard'
+    augmentation_type: str = 'none'
 ) -> Tuple[DataLoader, DataLoader, DataLoader, list]:
     """
     Create train/val/test dataloaders with configurable augmentation.
@@ -25,6 +25,7 @@ def create_classification_dataloaders(
         batch_size: Batch size for dataloaders (optimized for T4 GPU)
         num_workers: Number of worker processes for data loading
         augmentation_type: Type of data augmentation to apply
+            - 'none': No augmentation (default)
             - 'standard': Basic augmentation (for baseline experiments)
             - 'enhanced': Stronger augmentation (for customized experiments)
     
@@ -38,7 +39,15 @@ def create_classification_dataloaders(
     """
     
     # Define augmentation strategies
-    if augmentation_type == 'standard':
+    if augmentation_type == 'none':
+        # No augmentation - only basic preprocessing
+        train_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+    elif augmentation_type == 'standard':
         # Standard augmentation for baseline experiments
         train_transform = transforms.Compose([
             transforms.Resize(256),
@@ -62,7 +71,7 @@ def create_classification_dataloaders(
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
     else:
-        raise ValueError(f"Unknown augmentation type: {augmentation_type}. Use 'standard' or 'enhanced'.")
+        raise ValueError(f"Unknown augmentation type: {augmentation_type}. Use 'none', 'standard', or 'enhanced'.")
     
     # Test/Validation transform (NO augmentation - consistent across all experiments)
     test_transform = transforms.Compose([

@@ -106,9 +106,35 @@ class ResNet50Classifier(nn.Module):
         
         # Option 1: Remove a layer (reduces depth)
         if remove_layer == 'layer3':
-            # Skip layer3 entirely
+            # Skip layer3 entirely and adjust layer4 to accept layer2's output
             modified.layer3 = nn.Identity()
-            print("✓ Backbone modification: Removed layer3")
+            
+            # Modify layer4's first bottleneck to accept 512 channels instead of 1024
+            # layer4[0].conv1 expects input from layer3 (normally 1024), but now gets 512 from layer2
+            original_conv1 = modified.layer4[0].conv1
+            modified.layer4[0].conv1 = nn.Conv2d(
+                in_channels=512,  # Changed from 1024 to 512
+                out_channels=original_conv1.out_channels,
+                kernel_size=original_conv1.kernel_size,
+                stride=original_conv1.stride,
+                padding=original_conv1.padding,
+                bias=original_conv1.bias is not None
+            )
+            
+            # Also need to adjust the downsample if it exists
+            if modified.layer4[0].downsample is not None:
+                original_downsample_conv = modified.layer4[0].downsample[0]
+                modified.layer4[0].downsample[0] = nn.Conv2d(
+                    in_channels=512,  # Changed from 1024 to 512
+                    out_channels=original_downsample_conv.out_channels,
+                    kernel_size=original_downsample_conv.kernel_size,
+                    stride=original_downsample_conv.stride,
+                    padding=original_downsample_conv.padding,
+                    bias=original_downsample_conv.bias is not None
+                )
+            
+            print("✓ Backbone modification: Removed layer3 (adjusted layer4 to accept 512 channels)")
+            
         elif remove_layer == 'layer4':
             # Skip layer4 entirely  
             modified.layer4 = nn.Identity()

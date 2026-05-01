@@ -3,11 +3,18 @@ Experiment: ResNet50 Customized v1 Classification
 
 Enhanced multi-layer FC head with stronger regularization.
 All layers trainable (NO freezing) - following teacher's methodology requirements.
+
+Usage:
+    python experiments/classification_ResNet50_v1.py [--pretrained True/False]
+    
+    --pretrained: Use pretrained ImageNet weights (default: True from config)
+                  Set to False to train from scratch
 """
 
 import sys
 from pathlib import Path
 import torch
+import argparse
 from datetime import datetime
 
 # Add project root to path
@@ -21,6 +28,12 @@ from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 def main():
     """Run Customized v1 Experiment."""
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='ResNet50 Customized v1 Classification Experiment')
+    parser.add_argument('--pretrained', type=str, default=None, 
+                       help='Use pretrained weights: True, False, or None (use config default)')
+    args = parser.parse_args()
     
     print("=" * 80)
     print("EXPERIMENT: ResNet50 Customized v1")
@@ -58,13 +71,24 @@ def main():
     
     # Step 2: Initialize model
     print("\n[2/5] Initializing customized model...")
+    
+    # Handle pretrained parameter
+    model_config = CUSTOMIZED_V1_CONFIG.copy()
+    if args.pretrained is not None:
+        model_config['pretrained'] = args.pretrained.lower() == 'true'
+    
     print('Modifications:')
     print('  - Enhanced multi-layer FC head (2048 → 512 → 256 → 10) with BatchNorm')
     print('  - Higher dropout (0.7)')
-    print('  - Enhanced data augmentation')
     print('  - ALL layers trainable (NO freezing)')
     
-    model = ResNet50Classifier(**CUSTOMIZED_V1_CONFIG)
+    if model_config['pretrained']:
+        print('Pretrained: YES (ImageNet weights)')
+    else:
+        print('Pretrained: NO (Training from scratch)')
+        print('Note: Will require more epochs and higher learning rate initially')
+    
+    model = ResNet50Classifier(**model_config)
     
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -72,11 +96,12 @@ def main():
     
     # Print detailed model architecture
     print("\nModel Summary:")
-    trainer = ClassificationTrainer(model, config=TRAINING_CONFIG_V1)
-    trainer.print_model_summary()
+    trainer_temp = ClassificationTrainer(model, config=TRAINING_CONFIG_V1)
+    trainer_temp.print_model_summary()
     
     # Step 3: Train
     print("\n[3/5] Training...")
+    trainer = trainer_temp  # Reuse the trainer we created for model summary
     criterion = torch.nn.CrossEntropyLoss(label_smoothing=TRAINING_CONFIG_V1.label_smoothing)
     
     history = trainer.train(
@@ -99,7 +124,7 @@ def main():
     # Generate comprehensive summary
     evaluator.generate_experiment_summary(
         experiment_name=experiment_name,
-        model_config=CUSTOMIZED_V1_CONFIG,
+        model_config=model_config,
         training_config=TRAINING_CONFIG_V1,
         trainer_metrics={'best_val_acc': trainer.best_val_acc},
         evaluation_metrics=metrics,

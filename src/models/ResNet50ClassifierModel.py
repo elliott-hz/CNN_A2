@@ -284,13 +284,3 @@ CUSTOMIZED_V3_CONFIG = {
     'remove_layer': 'layer3',
     'add_conv_after_layer': None
 }
-
-# Customized v4: Same architecture as baseline but trained from scratch (NO pretrained weights)
-CUSTOMIZED_V4_CONFIG = {
-    'num_classes': 10,
-    'dropout_rate': 0.5,
-    'pretrained': False,                    # ← Key difference: NO pretrained weights
-    'additional_fc_layers': False,
-    'use_batch_norm': True,
-    'modify_backbone': False
-}

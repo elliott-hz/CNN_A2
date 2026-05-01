@@ -336,3 +336,142 @@ class ClassificationEvaluator:
         plt.close()
         
         print(f'✓ Confusion matrix saved to: {cm_path}')
+    
+    def generate_experiment_summary(self, 
+                                   experiment_name: str,
+                                   model_config: Dict,
+                                   training_config,  # Now accepts TrainingConfig object
+                                   trainer_metrics: Dict,
+                                   evaluation_metrics: Dict,
+                                   overfitting_analysis: Dict,
+                                   output_dir: str):
+        """
+        Generate comprehensive experiment summary markdown file.
+        
+        Args:
+            experiment_name: Name of the experiment (e.g., 'baseline', 'customized_v2')
+            model_config: Model configuration dictionary
+            training_config: TrainingConfig object
+            trainer_metrics: Metrics from trainer (best_val_acc, history)
+            evaluation_metrics: Metrics from evaluation
+            overfitting_analysis: Analysis results from analyze_overfitting()
+            output_dir: Directory to save summary
+        """
+        output_path = Path(output_dir)
+        summary_path = output_path / 'experiment_summary.md'
+        
+        # Get current timestamp
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Build architecture description
+        arch_desc = self._get_architecture_description(experiment_name, model_config)
+        
+        with open(summary_path, 'w') as f:
+            f.write(f'# Experiment: ResNet50 {experiment_name.replace("_", " ").title()}\n\n')
+            f.write(f'**Date:** {timestamp}\n\n')
+            
+            # Methodology section
+            f.write(f'## Methodology\n\n')
+            f.write(f'- **Architecture:** {arch_desc}\n')
+            f.write(f'- **Training Strategy:** Single-phase training with ALL layers trainable\n')
+            f.write(f'- **NO Layer Freezing:** Following teacher\'s requirement for correct methodology\n')
+            f.write(f'- **Epochs:** {training_config.epochs}\n')
+            f.write(f'- **Learning Rate:** {training_config.learning_rate}\n')
+            f.write(f'- **Weight Decay:** {training_config.weight_decay}\n')
+            f.write(f'- **Optimizer:** {training_config.optimizer_type.upper()}\n')
+            f.write(f'- **Label Smoothing:** {training_config.label_smoothing}\n')
+            f.write(f'- **Early Stopping:** {"Enabled" if training_config.use_early_stopping else "Disabled"} (patience={training_config.early_stopping_patience})\n')
+            f.write(f'- **Scheduler:** {"Enabled" if training_config.use_scheduler else "Disabled"}\n')
+            f.write(f'- **Mixed Precision:** {"Enabled" if training_config.use_amp else "Disabled"}\n\n')
+            
+            # Model configuration details
+            f.write(f'## Model Configuration Details\n\n')
+            f.write(f'- **Num Classes:** {model_config["num_classes"]}\n')
+            f.write(f'- **Dropout Rate:** {model_config["dropout_rate"]}\n')
+            f.write(f'- **Pretrained:** {model_config["pretrained"]}\n')
+            f.write(f'- **Additional FC Layers:** {model_config["additional_fc_layers"]}\n')
+            f.write(f'- **Use BatchNorm:** {model_config["use_batch_norm"]}\n')
+            f.write(f'- **Modify Backbone:** {model_config["modify_backbone"]}\n')
+            if model_config.get('add_conv_after_layer'):
+                f.write(f'- **Add Conv After:** {model_config["add_conv_after_layer"]}\n')
+            if model_config.get('remove_layer'):
+                f.write(f'- **Remove Layer:** {model_config["remove_layer"]}\n')
+            f.write(f'\n')
+            
+            # Training configuration description
+            f.write(f'## Training Configuration\n\n')
+            f.write(f'**Description:** {training_config.description}\n\n')
+            
+            # Results section
+            f.write(f'## Results\n\n')
+            f.write(f'- Best Val Accuracy: {trainer_metrics["best_val_acc"]:.4f}\n')
+            f.write(f'- Test Accuracy: {evaluation_metrics["accuracy"]:.4f}\n')
+            f.write(f'- Test F1 (macro): {evaluation_metrics["f1_macro"]:.4f}\n')
+            f.write(f'- Test Precision (weighted): {evaluation_metrics["precision_weighted"]:.4f}\n')
+            f.write(f'- Test Recall (weighted): {evaluation_metrics["recall_weighted"]:.4f}\n\n')
+            
+            # Overfitting analysis
+            f.write(f'## Overfitting/Underfitting Analysis\n\n')
+            f.write(f'**Pattern Detected:** {overfitting_analysis["pattern"]}\n\n')
+            f.write(f'{overfitting_analysis["description"]}\n\n')
+            f.write(f'**Recommendation:** {overfitting_analysis["recommendation"]}\n\n')
+            
+            # Training curves
+            f.write(f'## Training Curves\n\n')
+            f.write(f'See `visualization/training_curves.png` for:\n')
+            f.write(f'- Training vs Validation Loss\n')
+            f.write(f'- Training vs Validation Accuracy\n\n')
+            
+            # Key design decisions based on experiment type
+            f.write(f'## Key Design Decisions\n\n')
+            f.write(self._get_design_decisions(experiment_name))
+        
+        print(f'✓ Experiment summary saved to: {summary_path}')
+        return summary_path
+    
+    def _get_architecture_description(self, experiment_name: str, model_config: Dict) -> str:
+        """Get human-readable architecture description."""
+        if experiment_name == 'baseline':
+            return 'Standard ResNet50 with single FC layer (2048 → 10)'
+        elif experiment_name == 'customized_v1':
+            return 'ResNet50 with enhanced multi-layer FC head (2048 → 512 → 256 → 10) and BatchNorm'
+        elif experiment_name == 'customized_v2':
+            return ('ResNet50 with backbone modification (added conv blocks after layer2) '
+                   'and enhanced multi-layer FC head (2048 → 512 → 256 → 10)')
+        elif experiment_name == 'customized_v3':
+            return 'ResNet50 with reduced depth (layer3 removed) and standard single FC layer (2048 → 10)'
+        else:
+            return 'Custom ResNet50 architecture'
+    
+    def _get_design_decisions(self, experiment_name: str) -> str:
+        """Get experiment-specific design decisions text."""
+        decisions = {
+            'baseline': (
+                '1. **No Layer Freezing:** All layers trainable from start to ensure correct methodology\n'
+                '2. **Lower Learning Rate:** Started with 1e-4 since all layers are training\n'
+                '3. **Single-Phase Training:** Simplified training process while maintaining effectiveness\n'
+                '4. **Consistent Dataset Split:** Same split used across all classification experiments\n'
+            ),
+            'customized_v1': (
+                '1. **Enhanced FC Head:** Multi-layer classifier enables complex feature combinations\n'
+                '2. **Batch Normalization:** Stabilizes training in deeper FC layers\n'
+                '3. **Stronger Regularization:** Higher dropout (0.7), weight decay (5e-3), and label smoothing (0.15)\n'
+                '4. **No Backbone Modification:** Kept standard ResNet50 backbone for comparison\n'
+            ),
+            'customized_v2': (
+                '1. **Backbone Structural Change:** Added convolutional blocks after layer2 to increase capacity\n'
+                '2. **Enhanced FC Head:** Multi-layer classifier with BatchNorm for stable training\n'
+                '3. **Balanced Regularization:** Moderate dropout (0.6) with strong weight decay (5e-3)\n'
+                '4. **TRUE CNN Customization:** Modifies actual CNN architecture, not just hyperparameters\n'
+                '5. **All Layers Trainable:** Ensures proper end-to-end learning\n'
+            ),
+            'customized_v3': (
+                '1. **Reduced Depth:** Removed layer3 to create lighter model and reduce overfitting risk\n'
+                '2. **Standard FC Head:** Simple single-layer classifier for fair comparison\n'
+                '3. **Moderate Regularization:** Standard dropout and weight decay settings\n'
+                '4. **Alternative Customization Strategy:** Demonstrates that removing layers is also valid customization\n'
+                '5. **All Layers Trainable:** Maintains correct methodology\n'
+            )
+        }
+        return decisions.get(experiment_name, '')

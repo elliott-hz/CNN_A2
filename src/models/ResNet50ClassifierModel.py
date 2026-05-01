@@ -254,7 +254,7 @@ BASELINE_CONFIG = {
 # Customized v1: Enhanced FC head with stronger regularization
 CUSTOMIZED_V1_CONFIG = {
     'num_classes': 10,
-    'dropout_rate': 0.7,
+    'dropout_rate': 0.5,                     # ↓ Reduced from 0.7 to 0.5 (less regularization)
     'pretrained': True,
     'additional_fc_layers': True,
     'use_batch_norm': True,
@@ -264,7 +264,7 @@ CUSTOMIZED_V1_CONFIG = {
 # Customized v2: TRUE CNN - Added conv blocks after layer2 + enhanced FC
 CUSTOMIZED_V2_CONFIG = {
     'num_classes': 10,
-    'dropout_rate': 0.6,
+    'dropout_rate': 0.5,                     # ↓ Reduced from 0.6 to 0.5 (less regularization)
     'pretrained': True,
     'additional_fc_layers': True,
     'use_batch_norm': True,

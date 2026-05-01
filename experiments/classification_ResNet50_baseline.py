@@ -95,7 +95,7 @@ def main():
     else:
         print('Architecture: Standard ResNet50 with ALL layers trainable (NO freezing)')
         print('Pretrained: NO (Training from scratch)')
-        print('Note: Will require more epochs and higher learning rate initially')
+        print('Note: Training configuration includes warmup and extended training schedule')
     
     model = ResNet50Classifier(**model_config)
     

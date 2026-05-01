@@ -34,6 +34,10 @@ class TrainingConfig:
     scheduler_patience: int = 5  # For ReduceLROnPlateau
     scheduler_factor: float = 0.5  # LR reduction factor
     
+    # Learning rate warmup
+    use_warmup: bool = False
+    warmup_epochs: int = 5  # Number of warmup epochs
+    
     # Early stopping
     use_early_stopping: bool = True
     early_stopping_patience: int = 10
@@ -49,69 +53,78 @@ class TrainingConfig:
     description: str = 'Default training configuration'
 
 
-# Training configurations for 4 experiments
+# Training configurations for different experiments
+
 TRAINING_CONFIG_BASELINE = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=150,                              # ↑ Increased from 50 to 150
+    epochs=200,                              # ↑ Increased to 200
+    use_warmup=True,                         # ✓ Enable warmup
+    warmup_epochs=5,                         # 5 epochs warmup
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=10,                   # ↑ Increased from 5 to 10
+    scheduler_patience=7,                    # ↓ Reduced from 10 to 7 (earlier LR reduction)
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=30,              # ↑ Increased from 10 to 30
+    early_stopping_patience=50,              # ↑ Increased from 30 to 50
     label_smoothing=0.1,
     use_amp=True,
-    description='Baseline training with moderate regularization and dynamic LR reduction (extended training)'
+    description='Baseline training with warmup, moderate regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
     learning_rate=1e-4,
-    weight_decay=5e-3,
+    weight_decay=1e-3,                       # ↓ Reduced from 5e-3 to 1e-3 (less regularization)
     optimizer_type='adamw',
-    epochs=150,                              # ↑ Increased from 60 to 150
+    epochs=200,                              # ↑ Increased to 200
+    use_warmup=True,                         # ✓ Enable warmup
+    warmup_epochs=5,                         # 5 epochs warmup
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=10,                   # ↑ Increased from 5 to 10
+    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=30,              # ↑ Increased from 12 to 30
-    label_smoothing=0.15,
+    early_stopping_patience=50,              # ↑ Increased from 30 to 50
+    label_smoothing=0.1,                     # ↓ Reduced from 0.15 to 0.1
     use_amp=True,
-    description='Enhanced FC head with stronger regularization and dynamic LR reduction (extended training)'
+    description='Enhanced FC head with warmup, reduced regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
     learning_rate=1e-4,
-    weight_decay=5e-3,
+    weight_decay=1e-3,                       # ↓ Reduced from 5e-3 to 1e-3 (less regularization)
     optimizer_type='adamw',
-    epochs=150,                              # ↑ Increased from 60 to 150
+    epochs=200,                              # ↑ Increased to 200
+    use_warmup=True,                         # ✓ Enable warmup
+    warmup_epochs=5,                         # 5 epochs warmup
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=10,                   # ↑ Increased from 5 to 10
+    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=30,              # ↑ Increased from 12 to 30
-    label_smoothing=0.15,
+    early_stopping_patience=50,              # ↑ Increased from 30 to 50
+    label_smoothing=0.1,                     # ↓ Reduced from 0.15 to 0.1
     use_amp=True,
-    description='CNN backbone modification (add conv blocks) with enhanced FC head, strong regularization and dynamic LR reduction (extended training)'
+    description='CNN backbone modification with warmup, reduced regularization and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=150,                              # ↑ Increased from 50 to 150
+    epochs=200,                              # ↑ Increased to 200
+    use_warmup=True,                         # ✓ Enable warmup
+    warmup_epochs=5,                         # 5 epochs warmup
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=10,                   # ↑ Increased from 5 to 10
+    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=30,              # ↑ Increased from 10 to 30
+    early_stopping_patience=50,              # ↑ Increased from 30 to 50
     label_smoothing=0.1,
     use_amp=True,
-    description='Reduced depth backbone (remove layer3) with standard regularization and dynamic LR reduction (extended training)'
+    description='Reduced depth backbone with warmup, standard regularization and dynamic LR reduction'
 )
 
 
@@ -426,6 +439,8 @@ class ClassificationTrainer:
         print(f'\nTraining Configuration:')
         print(f'  - Epochs: {epochs}')
         print(f'  - Learning Rate: {self.config.learning_rate}')
+        if self.config.use_warmup:
+            print(f'  - Warmup: Enabled ({self.config.warmup_epochs} epochs, linear)')
         print(f'  - Weight Decay: {self.config.weight_decay}')
         print(f'  - Optimizer: {self.config.optimizer_type.upper()}')
         print(f'  - Label Smoothing: {self.config.label_smoothing}')
@@ -436,6 +451,16 @@ class ClassificationTrainer:
         
         try:
             for epoch in range(epochs):
+                # Apply learning rate warmup if enabled
+                if self.config.use_warmup and epoch < self.config.warmup_epochs:
+                    # Linear warmup from 0 to base learning rate
+                    warmup_ratio = (epoch + 1) / self.config.warmup_epochs
+                    current_lr = self.config.learning_rate * warmup_ratio
+                    
+                    # Update learning rate for all parameter groups
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = current_lr
+                
                 # Train
                 train_loss, train_acc = self.train_epoch(train_loader, criterion, epoch)
                 

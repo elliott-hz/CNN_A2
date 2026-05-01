@@ -10,7 +10,8 @@ from .ResNet50ClassifierModel import (
     BASELINE_CONFIG, 
     CUSTOMIZED_V1_CONFIG,
     CUSTOMIZED_V2_CONFIG,
-    CUSTOMIZED_V3_CONFIG
+    CUSTOMIZED_V3_CONFIG,
+    CUSTOMIZED_V4_CONFIG
 )
 
 # Detection models
@@ -24,6 +25,7 @@ __all__ = [
     'CUSTOMIZED_V1_CONFIG',
     'CUSTOMIZED_V2_CONFIG',
     'CUSTOMIZED_V3_CONFIG',
+    'CUSTOMIZED_V4_CONFIG',
     # Detection
     'YOLOv8Detector', 'YOLOV8_BASELINE_CONFIG',
     'FasterRCNNDetector', 'FASTERRCNN_BASELINE_CONFIG'

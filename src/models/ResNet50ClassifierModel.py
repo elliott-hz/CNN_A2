@@ -241,7 +241,7 @@ class ResNet50Classifier(nn.Module):
 
 # Model configurations
 
-# Baseline: Standard ResNet50
+# Baseline: Standard ResNet50 with pretrained weights
 BASELINE_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
@@ -261,7 +261,7 @@ CUSTOMIZED_V1_CONFIG = {
     'modify_backbone': False
 }
 
-# Customized v2: TRUE CNN customization - Add conv blocks after layer2
+# Customized v2: TRUE CNN - Added conv blocks after layer2 + enhanced FC
 CUSTOMIZED_V2_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.6,
@@ -270,10 +270,10 @@ CUSTOMIZED_V2_CONFIG = {
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': None,
-    'add_conv_after_layer': 'layer2'  # Add extra conv block after layer2
+    'add_conv_after_layer': 'layer2'
 }
 
-# Customized v3: Alternative - Remove layer3 to reduce depth
+# Customized v3: TRUE CNN - Removed layer3 (reduced depth)
 CUSTOMIZED_V3_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
@@ -281,6 +281,16 @@ CUSTOMIZED_V3_CONFIG = {
     'additional_fc_layers': False,
     'use_batch_norm': True,
     'modify_backbone': True,
-    'remove_layer': 'layer3',  # Remove layer3 entirely
+    'remove_layer': 'layer3',
     'add_conv_after_layer': None
+}
+
+# Customized v4: Same architecture as baseline but trained from scratch (NO pretrained weights)
+CUSTOMIZED_V4_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': False,                    # ← Key difference: NO pretrained weights
+    'additional_fc_layers': False,
+    'use_batch_norm': True,
+    'modify_backbone': False
 }

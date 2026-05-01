@@ -180,8 +180,8 @@ class ClassificationTrainer:
                     self.optimizer,
                     mode='min',
                     factor=config.scheduler_factor,
-                    patience=config.scheduler_patience,
-                    verbose=True
+                    patience=config.scheduler_patience
+                    # verbose parameter removed (deprecated in PyTorch 2.x)
                 )
             elif config.scheduler_type == 'step':
                 self.scheduler = torch.optim.lr_scheduler.StepLR(
@@ -209,12 +209,16 @@ class ClassificationTrainer:
         print("MODEL ARCHITECTURE SUMMARY")
         print("="*80)
         
-        # Create a dummy input to trace shapes
-        batch_size = 1
+        # Create a dummy input with batch_size=2 to satisfy BatchNorm requirements
+        batch_size = 2
         channels = 3
         height = 224
         width = 224
         dummy_input = torch.randn(batch_size, channels, height, width).to(self.device)
+        
+        # Set model to eval mode to avoid BatchNorm issues with small batches
+        original_training = self.model.training
+        self.model.eval()
         
         # Collect layer information
         layer_info = []
@@ -267,6 +271,10 @@ class ClassificationTrainer:
         # Forward pass to trigger hooks
         with torch.no_grad():
             _ = self.model(dummy_input)
+        
+        # Restore original training mode
+        if original_training:
+            self.model.train()
         
         # Print header
         print(f"\n{'Layer Name':<30} {'Input Shape':<20} {'Output Shape':<20} {'Params':<12} {'Trainable':<12}")

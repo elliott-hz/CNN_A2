@@ -56,75 +56,94 @@ class TrainingConfig:
 # Training configurations for different experiments
 
 TRAINING_CONFIG_BASELINE = TrainingConfig(
-    learning_rate=1e-4,
+    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=200,                              # ↑ Increased to 200
-    use_warmup=True,                         # ✓ Enable warmup
-    warmup_epochs=5,                         # 5 epochs warmup
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=7,                    # ↓ Reduced from 10 to 7 (earlier LR reduction)
+    scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=50,              # ↑ Increased from 30 to 50
+    early_stopping_patience=50,
     label_smoothing=0.1,
     use_amp=True,
-    description='Baseline training with warmup, moderate regularization and dynamic LR reduction'
+    description='Baseline training with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
-    learning_rate=1e-4,
-    weight_decay=1e-3,                       # ↓ Reduced from 5e-3 to 1e-3 (less regularization)
+    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
+    weight_decay=1e-3,
     optimizer_type='adamw',
-    epochs=200,                              # ↑ Increased to 200
-    use_warmup=True,                         # ✓ Enable warmup
-    warmup_epochs=5,                         # 5 epochs warmup
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
+    scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=50,              # ↑ Increased from 30 to 50
-    label_smoothing=0.1,                     # ↓ Reduced from 0.15 to 0.1
+    early_stopping_patience=50,
+    label_smoothing=0.1,
     use_amp=True,
-    description='Enhanced FC head with warmup, reduced regularization and dynamic LR reduction'
+    description='Enhanced FC head with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
-    learning_rate=1e-4,
-    weight_decay=1e-3,                       # ↓ Reduced from 5e-3 to 1e-3 (less regularization)
+    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
+    weight_decay=1e-3,
     optimizer_type='adamw',
-    epochs=200,                              # ↑ Increased to 200
-    use_warmup=True,                         # ✓ Enable warmup
-    warmup_epochs=5,                         # 5 epochs warmup
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
+    scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=50,              # ↑ Increased from 30 to 50
-    label_smoothing=0.1,                     # ↓ Reduced from 0.15 to 0.1
+    early_stopping_patience=50,
+    label_smoothing=0.1,
     use_amp=True,
-    description='CNN backbone modification with warmup, reduced regularization and dynamic LR reduction'
+    description='CNN backbone modification with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
-    learning_rate=1e-4,
+    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
     weight_decay=1e-4,
     optimizer_type='adamw',
-    epochs=200,                              # ↑ Increased to 200
-    use_warmup=True,                         # ✓ Enable warmup
-    warmup_epochs=5,                         # 5 epochs warmup
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
-    scheduler_patience=7,                    # ↓ Reduced from 10 to 7
+    scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
-    early_stopping_patience=50,              # ↑ Increased from 30 to 50
+    early_stopping_patience=50,
     label_smoothing=0.1,
     use_amp=True,
-    description='Reduced depth backbone with warmup, standard regularization and dynamic LR reduction'
+    description='Reduced depth backbone (layer3 removed) with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+)
+
+# Training configuration for V4 (remove layer4)
+TRAINING_CONFIG_V4 = TrainingConfig(
+    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended warmup
+    use_scheduler=True,
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=7,
+    scheduler_factor=0.5,
+    use_early_stopping=True,
+    early_stopping_patience=50,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Reduced depth backbone (layer4 removed) with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
 )
 
 

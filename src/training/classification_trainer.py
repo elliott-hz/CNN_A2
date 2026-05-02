@@ -146,6 +146,62 @@ TRAINING_CONFIG_V4 = TrainingConfig(
     description='Reduced depth backbone (layer4 removed) with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
 )
 
+# Training configuration for V5 (add conv blocks after layer1, single FC head)
+TRAINING_CONFIG_V5 = TrainingConfig(
+    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended warmup
+    use_scheduler=True,
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=7,
+    scheduler_factor=0.5,
+    use_early_stopping=True,
+    early_stopping_patience=50,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Added conv blocks after layer1 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+)
+
+# Training configuration for V6 (add conv blocks after layer2, single FC head)
+TRAINING_CONFIG_V6 = TrainingConfig(
+    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended warmup
+    use_scheduler=True,
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=7,
+    scheduler_factor=0.5,
+    use_early_stopping=True,
+    early_stopping_patience=50,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Added conv blocks after layer2 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+)
+
+# Training configuration for V7 (add conv blocks after layer3, single FC head)
+TRAINING_CONFIG_V7 = TrainingConfig(
+    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
+    weight_decay=1e-4,
+    optimizer_type='adamw',
+    epochs=200,
+    use_warmup=True,
+    warmup_epochs=10,                        # ↑ Extended warmup
+    use_scheduler=True,
+    scheduler_type='reduce_on_plateau',
+    scheduler_patience=7,
+    scheduler_factor=0.5,
+    use_early_stopping=True,
+    early_stopping_patience=50,
+    label_smoothing=0.1,
+    use_amp=True,
+    description='Added conv blocks after layer3 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+)
 
 class ClassificationTrainer:
     """

@@ -26,9 +26,8 @@ class ResNet50Classifier(nn.Module):
     - Customized CNN: Modified backbone with structural changes
     """
     
-    def __init__(self, num_classes: int = 10, dropout_rate: float = 0.5, 
-                 pretrained: bool = True, additional_fc_layers: bool = False,
-                 use_batch_norm: bool = True, modify_backbone: bool = False,
+    def __init__(self, num_classes: int = 10, dropout_rate: float = 0.5, pretrained: bool = True,
+                 fc_hidden_dims: Optional[list] = None, use_batch_norm: bool = True, modify_backbone: bool = False,
                  remove_layer: Optional[str] = None, add_conv_after_layer: Optional[str] = None):
         """
         Initialize ResNet50 classifier.
@@ -37,7 +36,11 @@ class ResNet50Classifier(nn.Module):
             num_classes: Number of output classes
             dropout_rate: Dropout rate
             pretrained: Use ImageNet pretrained weights
-            additional_fc_layers: Add extra FC layers (customized version)
+            fc_hidden_dims: FC hidden layer dimensions. 
+                           - None or []: Single layer (2048→num_classes) like Baseline
+                           - [512, 256]: Two hidden layers (default for customized versions)
+                           - [256]: Single hidden layer (simplified V1)
+                           - Any list: Custom architecture
             use_batch_norm: Use batch normalization in custom layers
             modify_backbone: Enable backbone structural modifications
             remove_layer: Remove a backbone layer ('layer3' or 'layer4')
@@ -73,33 +76,30 @@ class ResNet50Classifier(nn.Module):
         self.backbone.fc = nn.Identity()
         
         # Build classifier head
-        if additional_fc_layers:
-            # Customized: Multi-layer classifier
-            layers = [
-                nn.Dropout(dropout_rate),
-                nn.Linear(num_features, 512)
-            ]
-            if use_batch_norm:
-                layers.append(nn.BatchNorm1d(512))
-            layers.extend([
-                nn.ReLU(),
-                nn.Dropout(dropout_rate),
-                nn.Linear(512, 256)
-            ])
-            if use_batch_norm:
-                layers.append(nn.BatchNorm1d(256))
-            layers.extend([
-                nn.ReLU(),
-                nn.Dropout(dropout_rate),
-                nn.Linear(256, num_classes)
-            ])
-            self.classifier = nn.Sequential(*layers)
-        else:
-            # Baseline: Simple single-layer classifier
+        if fc_hidden_dims is None or len(fc_hidden_dims) == 0:
+            # Baseline: Simple single-layer classifier (2048 → num_classes)
             self.classifier = nn.Sequential(
                 nn.Dropout(dropout_rate),
                 nn.Linear(num_features, num_classes)
             )
+        else:
+            # Customized: Multi-layer classifier with specified dimensions
+            layers = []
+            current_dim = num_features
+            
+            for hidden_dim in fc_hidden_dims:
+                layers.append(nn.Dropout(dropout_rate))
+                layers.append(nn.Linear(current_dim, hidden_dim))
+                if use_batch_norm:
+                    layers.append(nn.BatchNorm1d(hidden_dim))
+                layers.append(nn.ReLU())
+                current_dim = hidden_dim
+            
+            # Final classification layer
+            layers.append(nn.Dropout(dropout_rate))
+            layers.append(nn.Linear(current_dim, num_classes))
+            
+            self.classifier = nn.Sequential(*layers)
     
     def _get_feature_dimension(self) -> int:
         """
@@ -275,22 +275,22 @@ class ResNet50Classifier(nn.Module):
 
 # Model configurations
 
-# Baseline: Standard ResNet50 with pretrained weights
+# Baseline configuration - Single FC layer (2048 → 10)
 BASELINE_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
-    'additional_fc_layers': False,
+    'fc_hidden_dims': None,                    # None means single layer like Baseline
     'use_batch_norm': True,
     'modify_backbone': False
 }
 
-# Customized v1: Enhanced FC head with stronger regularization
+# Customized v1: Enhanced FC head with reduced dimensions (FIXED for validation-set bias)
 CUSTOMIZED_V1_CONFIG = {
     'num_classes': 10,
-    'dropout_rate': 0.5,                     # ↓ Reduced from 0.7 to 0.5 (less regularization)
+    'dropout_rate': 0.5,
     'pretrained': True,
-    'additional_fc_layers': True,
+    'fc_hidden_dims': [256],                   # Simplified: Single hidden layer (2048→256→10)
     'use_batch_norm': True,
     'modify_backbone': False
 }
@@ -298,35 +298,71 @@ CUSTOMIZED_V1_CONFIG = {
 # Customized v2: TRUE CNN - Added conv blocks after layer2 + enhanced FC
 CUSTOMIZED_V2_CONFIG = {
     'num_classes': 10,
-    'dropout_rate': 0.5,                     # ↓ Reduced from 0.6 to 0.5 (less regularization)
+    'dropout_rate': 0.5,
     'pretrained': True,
-    'additional_fc_layers': True,
+    'fc_hidden_dims': [512, 256],              # Default two hidden layers
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': None,
     'add_conv_after_layer': 'layer2'
 }
 
-# Customized v3: TRUE CNN - Removed layer3 (reduced depth)
+# Customized v3: Remove layer3 from backbone + single FC head
 CUSTOMIZED_V3_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
-    'additional_fc_layers': False,
+    'fc_hidden_dims': None,                    # Single FC layer
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': 'layer3',
     'add_conv_after_layer': None
 }
 
-# Customized v4: TRUE CNN - Removed layer4 (alternative reduction)
+# Customized v4: Remove layer4 from backbone + single FC head
 CUSTOMIZED_V4_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
-    'additional_fc_layers': False,
+    'fc_hidden_dims': None,                    # Single FC layer
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': 'layer4',
     'add_conv_after_layer': None
+}
+
+# Customized v5: TRUE CNN - Added conv blocks after layer1 ONLY (single FC head)
+CUSTOMIZED_V5_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'fc_hidden_dims': None,                    # Single FC layer like Baseline
+    'use_batch_norm': True,
+    'modify_backbone': True,
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer1'
+}
+
+# Customized v6: TRUE CNN - Added conv blocks after layer2 ONLY (single FC head)
+CUSTOMIZED_V6_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'fc_hidden_dims': None,                    # Single FC layer like Baseline
+    'use_batch_norm': True,
+    'modify_backbone': True,
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer2'
+}
+
+# Customized v7: TRUE CNN - Added conv blocks after layer3 ONLY (single FC head)
+CUSTOMIZED_V7_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'fc_hidden_dims': None,                    # Single FC layer like Baseline
+    'use_batch_norm': True,
+    'modify_backbone': True,
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer3'
 }

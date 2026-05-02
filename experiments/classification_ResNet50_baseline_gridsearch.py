@@ -35,7 +35,7 @@ def create_config(lr, weight_decay, label_smoothing, warmup_epochs=10):
         learning_rate=lr,
         weight_decay=weight_decay,
         optimizer_type='adamw',
-        epochs=200,
+        epochs=120,                      # Reduced from 200 to speed up grid search
         use_warmup=True,
         warmup_epochs=warmup_epochs,
         use_scheduler=True,
@@ -43,7 +43,7 @@ def create_config(lr, weight_decay, label_smoothing, warmup_epochs=10):
         scheduler_patience=7,
         scheduler_factor=0.5,
         use_early_stopping=True,
-        early_stopping_patience=50,
+        early_stopping_patience=20,      # Reduced from 50 to stop earlier if no improvement
         label_smoothing=label_smoothing,
         use_amp=True,
         description=f'Baseline grid search: LR={lr}, WD={weight_decay}, LS={label_smoothing}'
@@ -53,9 +53,20 @@ def create_config(lr, weight_decay, label_smoothing, warmup_epochs=10):
 def main():
     """Run hyperparameter grid search for Baseline model."""
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='ResNet50 Baseline Hyperparameter Grid Search')
+    parser.add_argument('--pretrained', type=str, default='False', 
+                       help='Use pretrained weights: True or False (default: False)')
+    parser.add_argument('--dataAugmentation', type=str, default='enhanced',
+                       choices=['none', 'standard', 'enhanced'],
+                       help='Data augmentation strategy (default: enhanced)')
+    args = parser.parse_args()
+    
     print("=" * 80)
     print("HYPERPARAMETER GRID SEARCH - BASELINE MODEL")
     print("=" * 80)
+    print(f'Pretrained: {args.pretrained}')
+    print(f'Data Augmentation: {args.dataAugmentation}')
     
     # Configuration
     STUDENT_ID = "25509225"
@@ -104,9 +115,17 @@ def main():
     # Load data once (reuse across all runs)
     print("[1/3] Loading data...")
     train_loader, val_loader, test_loader, class_names = create_classification_dataloaders(
-        DATA_ROOT, batch_size=BATCH_SIZE, augmentation_type='enhanced'
+        DATA_ROOT, batch_size=BATCH_SIZE, augmentation_type=args.dataAugmentation
     )
     print(f'Data loaded: Train={len(train_loader.dataset)}, Val={len(val_loader.dataset)}, Test={len(test_loader.dataset)}')
+    
+    # Print augmentation info
+    aug_descriptions = {
+        'none': 'No augmentation (basic preprocessing only)',
+        'standard': 'Standard (Rotation 15°, ColorJitter 0.2)',
+        'enhanced': 'Enhanced (Rotation 20°, ColorJitter 0.3+hue, RandomAffine)'
+    }
+    print(f'Data augmentation: {aug_descriptions[args.dataAugmentation]}')
     
     # Run grid search
     print("\n[2/3] Starting grid search...\n")
@@ -122,8 +141,10 @@ def main():
         # Create config
         config = create_config(lr, wd, ls)
         
-        # Initialize model
-        model = ResNet50Classifier(**BASELINE_CONFIG)
+        # Initialize model with dynamic pretrained setting
+        model_config = BASELINE_CONFIG.copy()
+        model_config['pretrained'] = args.pretrained.lower() == 'true'
+        model = ResNet50Classifier(**model_config)
         
         # Create experiment subdirectory
         exp_dir = output_dir / f'comb_{i+1:02d}_LR{lr:.0e}_WD{wd:.0e}_LS{ls:.2f}'

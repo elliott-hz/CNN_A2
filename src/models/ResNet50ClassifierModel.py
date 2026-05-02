@@ -12,7 +12,7 @@ Customization Options:
 import torch
 import torch.nn as nn
 from torchvision import models
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import copy
 
 
@@ -29,7 +29,7 @@ class ResNet50Classifier(nn.Module):
     def __init__(self, num_classes: int = 10, dropout_rate: float = 0.5, 
                  pretrained: bool = True, additional_fc_layers: bool = False,
                  use_batch_norm: bool = True, modify_backbone: bool = False,
-                 remove_layer: str = None, add_conv_after_layer: str = None):
+                 remove_layer: Optional[str] = None, add_conv_after_layer: Optional[str] = None):
         """
         Initialize ResNet50 classifier.
         
@@ -45,6 +45,16 @@ class ResNet50Classifier(nn.Module):
         """
         super(ResNet50Classifier, self).__init__()
         
+        # Validate parameters
+        if remove_layer and remove_layer not in ['layer3', 'layer4']:
+            raise ValueError(f"remove_layer must be 'layer3' or 'layer4', got '{remove_layer}'")
+        
+        if add_conv_after_layer and add_conv_after_layer not in ['layer1', 'layer2', 'layer3']:
+            raise ValueError(f"add_conv_after_layer must be 'layer1', 'layer2', or 'layer3', got '{add_conv_after_layer}'")
+        
+        if remove_layer and add_conv_after_layer:
+            raise ValueError("Cannot both remove and add layers simultaneously")
+        
         # Load pretrained ResNet50 backbone
         weights = models.ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
         base_model = models.resnet50(weights=weights)
@@ -55,8 +65,9 @@ class ResNet50Classifier(nn.Module):
         else:
             self.backbone = base_model
         
-        # Get feature dimension
-        num_features = self.backbone.fc.in_features
+        # Get feature dimension AFTER modifications
+        # Use dummy forward pass to determine actual output dimension
+        num_features = self._get_feature_dimension()
         
         # Replace final FC with Identity (we'll use our own classifier)
         self.backbone.fc = nn.Identity()
@@ -89,6 +100,44 @@ class ResNet50Classifier(nn.Module):
                 nn.Dropout(dropout_rate),
                 nn.Linear(num_features, num_classes)
             )
+    
+    def _get_feature_dimension(self) -> int:
+        """
+        Determine the feature dimension after backbone modifications.
+        
+        Uses a dummy forward pass to get the actual output shape.
+        
+        Returns:
+            Feature dimension (number of channels after global average pooling)
+        """
+        # Create a dummy input (batch_size=1 to save memory)
+        dummy_input = torch.zeros(1, 3, 224, 224)
+        
+        # Temporarily set to eval mode to avoid BatchNorm issues with batch_size=1
+        training_mode = self.backbone.training
+        self.backbone.eval()
+        
+        with torch.no_grad():
+            # Pass through backbone up to avgpool
+            x = self.backbone.conv1(dummy_input)
+            x = self.backbone.bn1(x)
+            x = self.backbone.relu(x)
+            x = self.backbone.maxpool(x)
+            
+            x = self.backbone.layer1(x)
+            x = self.backbone.layer2(x)
+            x = self.backbone.layer3(x)
+            x = self.backbone.layer4(x)
+            
+            x = self.backbone.avgpool(x)
+            x = torch.flatten(x, 1)
+            
+            num_features = x.shape[1]
+        
+        # Restore training mode
+        self.backbone.train(training_mode)
+        
+        return num_features
     
     def _modify_backbone(self, base_model, remove_layer=None, add_conv_after_layer=None):
         """
@@ -138,28 +187,31 @@ class ResNet50Classifier(nn.Module):
         elif remove_layer == 'layer4':
             # Skip layer4 entirely  
             modified.layer4 = nn.Identity()
-            print("✓ Backbone modification: Removed layer4")
+            print("✓ Backbone modification: Removed layer4 (final features will be 1024 channels)")
         
         # Option 2: Add convolutional block after a layer (increases depth)
         if add_conv_after_layer:
+            # Get channel count BEFORE wrapping (critical fix)
+            num_channels = self._get_original_layer_channels(modified, add_conv_after_layer)
+            
             conv_block = nn.Sequential(
                 nn.Conv2d(
-                    in_channels=self._get_layer_channels(modified, add_conv_after_layer),
-                    out_channels=self._get_layer_channels(modified, add_conv_after_layer),
+                    in_channels=num_channels,
+                    out_channels=num_channels,
                     kernel_size=3,
                     padding=1,
                     bias=False
                 ),
-                nn.BatchNorm2d(self._get_layer_channels(modified, add_conv_after_layer)),
+                nn.BatchNorm2d(num_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(
-                    in_channels=self._get_layer_channels(modified, add_conv_after_layer),
-                    out_channels=self._get_layer_channels(modified, add_conv_after_layer),
+                    in_channels=num_channels,
+                    out_channels=num_channels,
                     kernel_size=3,
                     padding=1,
                     bias=False
                 ),
-                nn.BatchNorm2d(self._get_layer_channels(modified, add_conv_after_layer)),
+                nn.BatchNorm2d(num_channels),
                 nn.ReLU(inplace=True)
             )
             
@@ -179,8 +231,18 @@ class ResNet50Classifier(nn.Module):
         
         return modified
     
-    def _get_layer_channels(self, model, layer_name):
-        """Get output channels from a specific layer."""
+    def _get_original_layer_channels(self, model, layer_name):
+        """
+        Get output channels from a specific layer BEFORE any wrapping.
+        
+        Args:
+            model: ResNet50 model (before modifications)
+            layer_name: Layer name ('layer1', 'layer2', 'layer3', 'layer4')
+            
+        Returns:
+            Number of output channels
+        """
+        # Access the last bottleneck block directly
         if layer_name == 'layer1':
             return model.layer1[-1].conv3.out_channels
         elif layer_name == 'layer2':
@@ -192,51 +254,23 @@ class ResNet50Classifier(nn.Module):
         return 512  # default
 
     def forward(self, x):
-        """Forward pass."""
-        # Extract features from backbone
-        x = self.backbone.conv1(x)
-        x = self.backbone.bn1(x)
-        x = self.backbone.relu(x)
-        x = self.backbone.maxpool(x)
-        
-        x = self.backbone.layer1(x)
-        x = self.backbone.layer2(x)
-        x = self.backbone.layer3(x)
-        x = self.backbone.layer4(x)
-        
-        x = self.backbone.avgpool(x)
-        x = torch.flatten(x, 1)
-        
-        # Apply classifier
-        x = self.classifier(x)
-        return x
-    
-    def freeze_backbone(self):
-        """Freeze all backbone parameters."""
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-    
-    def unfreeze_backbone(self, unfreeze_layer2: bool = False):
         """
-        Unfreeze backbone for fine-tuning.
+        Forward pass using backbone's built-in forward method.
+        
+        This approach is robust to backbone modifications (layer removal/addition).
         
         Args:
-            unfreeze_layer2: Also unfreeze layer2 (extended fine-tuning)
+            x: Input tensor (B, 3, H, W)
+            
+        Returns:
+            Classification logits (B, num_classes)
         """
-        # Always unfreeze layer3 and layer4
-        for param in self.backbone.layer3.parameters():
-            param.requires_grad = True
-        for param in self.backbone.layer4.parameters():
-            param.requires_grad = True
+        # Use backbone's forward pass (handles all internal layers correctly)
+        features = self.backbone(x)
         
-        # Optionally unfreeze layer2
-        if unfreeze_layer2:
-            for param in self.backbone.layer2.parameters():
-                param.requires_grad = True
-        
-        # Unfreeze bn1
-        for param in self.backbone.bn1.parameters():
-            param.requires_grad = True
+        # Apply classifier head
+        out = self.classifier(features)
+        return out
 
 
 # Model configurations
@@ -282,5 +316,17 @@ CUSTOMIZED_V3_CONFIG = {
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': 'layer3',
+    'add_conv_after_layer': None
+}
+
+# Customized v4: TRUE CNN - Removed layer4 (alternative reduction)
+CUSTOMIZED_V4_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'additional_fc_layers': False,
+    'use_batch_norm': True,
+    'modify_backbone': True,
+    'remove_layer': 'layer4',
     'add_conv_after_layer': None
 }

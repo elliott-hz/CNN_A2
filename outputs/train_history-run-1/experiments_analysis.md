@@ -282,31 +282,108 @@ mixed_precision = True
 
 ## Recommendations for Future Work
 
-### 1. **Address Overfitting**
-- Implement stronger data augmentation (currently using `none`)
-- Add dropout in backbone (not just classifier)
-- Consider label smoothing increase (currently 0.1)
-- Try mixup or cutmix augmentation strategies
+Based on current results, here are actionable next steps:
 
-### 2. **Optimize V3 Further**
-- V3 shows best potential; focus tuning efforts here
-- Experiment with different layers to remove (layer4 instead of layer3?)
-- Test adding lightweight attention mechanisms
+### 1. **Enable Data Augmentation (Highest Priority)** ✅ Ready to Run
 
-### 3. **Training Strategy Adjustments**
-- Increase initial learning rate for from-scratch training (try 1e-3)
-- Extend warmup period (currently 5 epochs)
-- Use cosine annealing instead of ReduceLROnPlateau
+**Action:** Re-run all 4 experiments with `--dataAugmentation enhanced`
+```bash
+python3 experiments/classification_ResNet50_baseline.py --pretrained False --dataAugmentation enhanced
+python3 experiments/classification_ResNet50_v1.py --pretrained False --dataAugmentation enhanced
+python3 experiments/classification_ResNet50_v2.py --pretrained False --dataAugmentation enhanced
+python3 experiments/classification_ResNet50_v3.py --pretrained False --dataAugmentation enhanced
+```
 
-### 4. **Data-Centric Improvements**
-- Current: No augmentation → High overfitting risk
-- Recommended: Enable `--dataAugmentation enhanced`
-- Consider collecting more training data per class
+**Expected Impact:** Should reduce overfitting by 3-5% and potentially reach 97-98% validation accuracy. No code changes needed.
 
-### 5. **Architecture Exploration**
-- V3 proves "less is more" for small datasets
-- Explore other lightweight architectures (MobileNet, EfficientNet)
-- Consider knowledge distillation from larger models
+---
+
+### 2. **Optimize V3 Architecture**
+
+**Try removing layer4 instead of layer3:**
+- **Layer3 removal (current V3):** Removes middle-depth features, keeps high-level semantic features from layer4
+- **Layer4 removal (proposed):** Removes highest-level abstract features, keeps more spatial details from layer3
+- **Which is better?** Depends on dataset characteristics. For bird classification, layer4's semantic features may be more important, so layer3 removal works well. Test layer4 removal to compare.
+
+**Implementation:** Create a new config in `ResNet50ClassifierModel.py`:
+```python
+CUSTOMIZED_V4_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': False,
+    'additional_fc_layers': False,
+    'use_batch_norm': True,
+    'modify_backbone': True,
+    'remove_layer': 'layer4',  # Try removing layer4 instead
+    'add_conv_after_layer': None
+}
+```
+
+---
+
+### 3. **Adjust Training Hyperparameters**
+
+**Increase initial learning rate to 1e-3:**
+- Current: 1e-4 (conservative for fine-tuning)
+- Recommended: 1e-3 (better for training from scratch)
+- Why: From-scratch training needs higher LR to learn features quickly
+
+**Extend warmup from 5 to 10 epochs:**
+- Current: 5 epochs warmup
+- Recommended: 10 epochs warmup
+- Why: Smoother transition prevents early instability with higher LR
+
+**Keep ReduceLROnPlateau (don't switch to cosine annealing):**
+- Current scheduler works well
+- Cosine annealing is alternative but not necessary
+- ReduceLROnPlateau adapts to validation performance automatically
+
+**Implementation:** Modify training configs in `classification_trainer.py` or pass custom parameters when creating trainer.
+
+---
+
+### 4. **Focus on ResNet50 Variants Only**
+
+**Stay within current experimental framework:**
+- ✅ Baseline: Standard ResNet50
+- ✅ V1: Enhanced FC head
+- ✅ V2: Add conv blocks (backbone expansion)
+- ✅ V3: Remove layer3 (backbone reduction)
+- ✅ Proposed V4: Remove layer4 (alternative reduction)
+
+**Do NOT explore:**
+- ❌ Other architectures (MobileNet, EfficientNet, etc.)
+- ❌ Knowledge distillation
+- ❌ Attention mechanisms
+- ❌ Complex augmentation strategies (mixup/cutmix)
+
+**Rationale:** Assignment requires demonstrating understanding of CNN architecture customization through ResNet50 modifications, not exploring entirely different models.
+
+---
+
+### 5. **Key Insight: "Less is More"**
+
+**What it means:**
+- For small datasets (1,589 images), simpler models generalize better
+- V3 (16.4M params) outperforms larger models (25-26M params)
+- Reducing complexity acts as implicit regularization
+- Prevents model from memorizing noise in limited data
+
+**Practical implication:**
+- When data is scarce, prefer architectural simplification over enhancement
+- Focus on preventing overfitting rather than increasing capacity
+- Data augmentation becomes critical to artificially expand effective dataset size
+
+---
+
+## Immediate Next Steps
+
+1. **Run all 4 experiments with enhanced augmentation** (no code changes)
+2. **Compare results** - expect 3-5% improvement in validation accuracy
+3. **If still overfitting**, try V4 (remove layer4) configuration
+4. **Fine-tune hyperparameters** (LR=1e-3, warmup=10) if needed
+
+**Priority Order:** Data Augmentation > Architecture Tuning > Hyperparameter Adjustment
 
 ---
 

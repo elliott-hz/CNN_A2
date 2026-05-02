@@ -390,7 +390,14 @@ class ClassificationEvaluator:
             f.write(f'- **Num Classes:** {model_config["num_classes"]}\n')
             f.write(f'- **Dropout Rate:** {model_config["dropout_rate"]}\n')
             f.write(f'- **Pretrained:** {model_config["pretrained"]}\n')
-            f.write(f'- **Additional FC Layers:** {model_config["additional_fc_layers"]}\n')
+            
+            # Handle FC layer description based on new fc_hidden_dims parameter
+            fc_dims = model_config.get('fc_hidden_dims')
+            if fc_dims is None or len(fc_dims) == 0:
+                f.write(f'- **FC Architecture:** Single Layer (Baseline style)\n')
+            else:
+                f.write(f'- **FC Hidden Dimensions:** {fc_dims}\n')
+            
             f.write(f'- **Use BatchNorm:** {model_config["use_batch_norm"]}\n')
             f.write(f'- **Modify Backbone:** {model_config["modify_backbone"]}\n')
             if model_config.get('add_conv_after_layer'):

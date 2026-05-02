@@ -1,14 +1,18 @@
 """
-Hyperparameter Grid Search for Baseline Model
+Experiment: ResNet50 Baseline Hyperparameter Grid Search
 
 Systematically tests combinations of learning rate, weight decay, and label smoothing
 to optimize Baseline performance beyond 97.59%.
 
+This experiment performs a comprehensive grid search to identify optimal hyperparameters
+for the baseline ResNet50 model with enhanced data augmentation.
+
 Usage:
-    python3 experiments/hyperparameter_search_baseline.py
+    python experiments/classification_ResNet50_baseline_gridsearch.py
     
 Note: This will run multiple training sessions. Ensure you have sufficient time and GPU resources.
 Each combination trains for up to 200 epochs with early stopping.
+Estimated total time: ~54 hours (27 combinations × ~2 hours each)
 """
 
 import sys

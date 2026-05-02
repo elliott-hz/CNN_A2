@@ -602,7 +602,7 @@ It's important to distinguish between two different concepts in model evaluation
    
    **Goal**: Push Baseline from 97.59% to 98%+ through systematic hyperparameter optimization
    
-   **✅ Implementation**: Created grid search script `experiments/hyperparameter_search_baseline.py`
+   **✅ Implementation**: Created grid search script `experiments/classification_ResNet50_baseline_gridsearch.py`
    
    **Search Space**:
    - **Learning Rate**: [5e-4, 1e-3, 2e-3]
@@ -612,7 +612,7 @@ It's important to distinguish between two different concepts in model evaluation
    
    **How to Run**:
    ```bash
-   python3 experiments/hyperparameter_search_baseline.py
+   python3 experiments/classification_ResNet50_baseline_gridsearch.py
    ```
    
    **What It Does**:

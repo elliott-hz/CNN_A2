@@ -4,8 +4,8 @@
 4. my process of training have done for 3 times:
 4.1: only 4 classification experiments (all result shown in the folder of CNN_A2/outputs/train_history-run-1/) please read all of them (there is a summary markdown file named: experiment_analysis.md in this folder)
 4.2: only 5 classification experiments (all results shown in the folder of CNN_A2/outputs/train_history-run-2/) please read all of them (there is a summary markdonw file named: experiments_analysis.md in this folder)
-4.3: now i've also done a special experiment named: classification_ResNet50_baseline_gridsearch.py, which run with a combination of different settings and run for 27 different combinantion, and all the results shown in the folder of CNN_A2/outputs/train_history-baseline-gridsearch/run_20260502_161650/.,,,,, --TODO nned to do analysis and give a summary of the results.,,, this is used to adjust my baseline experiment (classification_ResNet50_baseline.py) to make the training seting more suited for baseline experiments.
-4.4: now i've already done the 3rd run of all 8 experiments from baseline to v7 (all results(md and csv files) shown in the folder of CNN_A2/outputs/train_history-run-3), please read all of them.   -- TODO need to do analysis and give a summary of the result. (current model and training setting, current performances (cons and pros.), and recommendations for futher experiments.
+4.3: i've also done a special experiment named: classification_ResNet50_baseline_gridsearch.py, which run with a combination of different settings and run for 27 different combinantion, and all the results shown in the folder of CNN_A2/outputs/train_history-baseline-gridsearch/. there is a summary of the results named: expriments_analysis.md in this folder.
+4.4: i've already done the 3rd run of all 8 experiments from baseline to v7 (all results(md and csv files) shown in the folder of CNN_A2/outputs/train_history-run-3),(there is a summary markdonw file named: experiments_analysis.md in this folder)
 
 
 please read and analysis all my requirements step by step.

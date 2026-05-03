@@ -53,11 +53,11 @@ class TrainingConfig:
     description: str = 'Default training configuration'
 
 
-# Training configurations for different experiments
+# Training configurations for Run-5 (Optimized based on Run-3 vs Run-4 analysis)
 
 TRAINING_CONFIG_BASELINE = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
-    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
+    learning_rate=1e-3,                      # ✅ Keep proven LR
+    weight_decay=5e-4,                       # 🔄 RUN-5 UPDATE: Reduced from 1e-3 to 5e-4 (Priority 1: Investigate degradation)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -68,14 +68,14 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Grid search recommended
+    label_smoothing=0.1,                     # ✅ Keep balanced LS
     use_amp=True,
-    description='Baseline training with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10) from grid search'
+    description='Baseline RUN-5: Lighter regularization (WD=5e-4) to recover from Run-4 degradation'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
     learning_rate=1e-3,
-    weight_decay=1e-3,                       # ✅ Already optimal
+    weight_decay=1e-3,                       # ✅ Already optimal (perfect consistency)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -86,14 +86,14 @@ TRAINING_CONFIG_V1 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.05,                    # ✅ UPDATED from 0.10 to 0.05 (grid search Comb 13)
+    label_smoothing=0.05,                    # ✅ Already optimal (no change needed - Priority 5)
     use_amp=True,
-    description='Enhanced FC head with optimal config (LR=1e-3, WD=1e-3, LS=0.05)'
+    description='V1 RUN-5: No changes (already optimal, perfect consistency across runs)'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
     learning_rate=1e-3,
-    weight_decay=1e-3,                       # ✅ Already optimal
+    weight_decay=1e-3,                       # ✅ Already optimal (perfect consistency)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -106,12 +106,12 @@ TRAINING_CONFIG_V2 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,
     use_amp=True,
-    description='Simplified V2: Add conv after layer2 with single FC head (removed enhanced FC), LR=1e-3, WD=1e-3, LS=0.10'
+    description='V2 RUN-5: No changes (already optimal, perfect consistency across runs)'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
-    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
+    learning_rate=1e-3,                      # ✅ Keep proven LR
+    weight_decay=2e-3,                       # 🔄 RUN-5 UPDATE: Intermediate WD between 1e-3 and 5e-3 (Priority 4)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -122,15 +122,15 @@ TRAINING_CONFIG_V3 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Grid search recommended
+    label_smoothing=0.1,                     # ✅ Keep balanced LS
     use_amp=True,
-    description='Remove layer3 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10) from grid search'
+    description='V3 RUN-5: Moderate regularization (WD=2e-3) to potentially reach 97.5-97.8%'
 )
 
-# Training configuration for V4 (remove layer4) - ATTEMPT FIX with maximum regularization
+# Training configuration for V4 (remove layer4) - Keep maximum regularization (successful fix)
 TRAINING_CONFIG_V4 = TrainingConfig(
-    learning_rate=5e-4,                      # ✅ UPDATED: More conservative LR for problematic architecture
-    weight_decay=5e-3,                       # ✅ UPDATED: Strongest regularization from grid search
+    learning_rate=5e-4,                      # ✅ Keep conservative LR (fix successful)
+    weight_decay=5e-3,                       # ✅ Keep strongest regularization (fix successful +2.82%)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -141,15 +141,15 @@ TRAINING_CONFIG_V4 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.15,                    # ✅ UPDATED: Maximum label smoothing for regularization
+    label_smoothing=0.15,                    # ✅ Keep maximum label smoothing (fix successful)
     use_amp=True,
-    description='V4 FIX ATTEMPT: Remove layer4 with maximum regularization (LR=5e-4, WD=5e-3, LS=0.15)'
+    description='V4 RUN-5: Keep maximum regularization (fix was successful, no changes needed)'
 )
 
-# Training configuration for V5 (add conv blocks after layer1, single FC head) - MAXIMUM PERFORMANCE
+# Training configuration for V5 (add conv blocks after layer1) - Option A: Intermediate WD
 TRAINING_CONFIG_V5 = TrainingConfig(
-    learning_rate=5e-4,                      # ✅ UPDATED: Conservative LR for best architecture (grid search Comb 07)
-    weight_decay=5e-3,                       # ✅ UPDATED: Strongest regularization from grid search
+    learning_rate=1e-3,                      # 🔄 RUN-5 UPDATE: Return to proven LR from Run-3
+    weight_decay=2e-3,                       # 🔄 RUN-5 UPDATE: Intermediate WD (Priority 2, Option A)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -160,15 +160,15 @@ TRAINING_CONFIG_V5 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.05,                    # ✅ UPDATED: Minimal smoothing for max performance
+    label_smoothing=0.1,                     # 🔄 RUN-5 UPDATE: Return to balanced LS from Run-3
     use_amp=True,
-    description='V5 MAXIMUM PERFORMANCE: Add conv after layer1 with optimal config (LR=5e-4, WD=5e-3, LS=0.05)'
+    description='V5 RUN-5: Option A - Intermediate regularization (LR=1e-3, WD=2e-3, LS=0.10) targeting 97.3-97.8%'
 )
 
-# Training configuration for V6 (add conv blocks after layer2, single FC head)
+# Training configuration for V6 (add conv blocks after layer2) - Lighter regularization
 TRAINING_CONFIG_V6 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
-    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
+    learning_rate=1e-3,                      # ✅ Keep proven LR
+    weight_decay=1e-4,                       # 🔄 RUN-5 UPDATE: Return to lighter WD (Priority 3: Re-test with original config)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -179,15 +179,15 @@ TRAINING_CONFIG_V6 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Grid search recommended
+    label_smoothing=0.1,                     # ✅ Keep balanced LS
     use_amp=True,
-    description='Add conv after layer2 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10)'
+    description='V6 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-2.01% drop)'
 )
 
-# Training configuration for V7 (add conv blocks after layer3, single FC head)
+# Training configuration for V7 (add conv blocks after layer3) - Lighter regularization
 TRAINING_CONFIG_V7 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
-    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
+    learning_rate=1e-3,                      # ✅ Keep proven LR
+    weight_decay=1e-4,                       # 🔄 RUN-5 UPDATE: Return to lighter WD (Priority 3: Re-test with original config)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -198,9 +198,9 @@ TRAINING_CONFIG_V7 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Grid search recommended
+    label_smoothing=0.1,                     # ✅ Keep balanced LS
     use_amp=True,
-    description='Add conv after layer3 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10)'
+    description='V7 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-1.81% drop)'
 )
 
 class ClassificationTrainer:

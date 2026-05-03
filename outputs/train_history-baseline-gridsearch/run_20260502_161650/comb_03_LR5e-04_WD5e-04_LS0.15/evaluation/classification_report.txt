@@ -1,0 +1,16 @@
+                    precision    recall  f1-score   support
+
+CRESTED KINGFISHER       1.00      1.00      1.00        25
+              CROW       1.00      0.92      0.96        25
+EASTERN MEADOWLARK       0.96      1.00      0.98        27
+    FAIRY BLUEBIRD       0.92      1.00      0.96        24
+   HARLEQUIN QUAIL       0.96      1.00      0.98        22
+     LAUGHING GULL       0.97      1.00      0.98        28
+            PALILA       0.96      0.92      0.94        24
+  PARADISE TANAGER       1.00      0.96      0.98        26
+  RAINBOW LORIKEET       1.00      0.96      0.98        23
+ TOWNSENDS WARBLER       0.92      0.92      0.92        25
+
+          accuracy                           0.97       249
+         macro avg       0.97      0.97      0.97       249
+      weighted avg       0.97      0.97      0.97       249

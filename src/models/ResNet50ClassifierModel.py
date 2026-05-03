@@ -295,16 +295,16 @@ CUSTOMIZED_V1_CONFIG = {
     'modify_backbone': False
 }
 
-# Customized v2: TRUE CNN - Added conv blocks after layer2 + enhanced FC
+# Customized v2: TRUE CNN - Added conv blocks after layer1 + SIMPLIFIED FC head (testing V5 architecture with V1 FC)
 CUSTOMIZED_V2_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
-    'fc_hidden_dims': [512, 256],              # Default two hidden layers
+    'fc_hidden_dims': [256],                   # ✅ CHANGED: Single hidden layer like V1 (2048→256→10)
     'use_batch_norm': True,
     'modify_backbone': True,
     'remove_layer': None,
-    'add_conv_after_layer': 'layer2'
+    'add_conv_after_layer': 'layer1'           # ✅ CHANGED: Same as V5 (conv blocks after layer1)
 }
 
 # Customized v3: Remove layer3 from backbone + single FC head
@@ -319,10 +319,10 @@ CUSTOMIZED_V3_CONFIG = {
     'add_conv_after_layer': None
 }
 
-# Customized v4: Remove layer4 from backbone + single FC head
+# Customized v4: Remove layer4 from backbone + single FC head - ATTEMPT FIX with increased dropout
 CUSTOMIZED_V4_CONFIG = {
     'num_classes': 10,
-    'dropout_rate': 0.5,
+    'dropout_rate': 0.7,                     # ✅ UPDATED from 0.5 to 0.7 for stronger regularization
     'pretrained': True,
     'fc_hidden_dims': None,                    # Single FC layer
     'use_batch_norm': True,

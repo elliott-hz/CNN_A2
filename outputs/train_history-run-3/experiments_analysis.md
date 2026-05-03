@@ -279,48 +279,133 @@ label_smoothing = 0.10
 
 ---
 
-### Priority 6: V2 Optimization 🟢 LOW
+### Priority 6: V2 Optimization 🟡 MEDIUM - NEW COMBINATION TEST
 
 **Current Status:**
-- Test accuracy: 95.98% (6th place)
-- Architecture: Add conv layer2 + enhanced FC (over-complex)
-- Weight decay: 1e-3 ✅ (already optimal)
+- Test accuracy: 95.98% (6th place in Run-3)
+- Original Architecture: Add conv after layer2 + enhanced FC (over-complex)
+- **NEW Strategy**: Test hybrid approach combining V5's architecture with V1's FC head
 
 **Recommended Actions:**
-1. **Simplify Architecture**:
-   - Remove enhanced FC head (keep only backbone modification)
-   - Test: Add conv after layer2 + single FC
-2. **Expected Outcome**: May improve by reducing over-parameterization
-3. **Rationale**: V2 underperforms simpler approaches (V1, V3)
+1. **Apply New Hybrid Architecture**:
+   - **Backbone**: Add conv blocks after **layer1** (like V5, proven best)
+   - **FC Head**: Simplified single hidden layer `fc_hidden_dims=[256]` (like V1)
+   - This tests if early-layer enhancement + moderate FC complexity yields better results
+   
+2. **Training Configuration**:
+   ```python
+   learning_rate = 1e-3       # Balanced config
+   weight_decay = 1e-3        # Grid search optimal
+   label_smoothing = 0.10     # Balanced
+   ```
 
-**Implementation Priority**: Low (not recommended for submission)
+3. **Expected Outcome**: 
+   - If successful: Could reach 97.0-97.5% (combining V5's backbone strength with V1's FC efficiency)
+   - Purpose: Validate that layer1 enhancement is the key factor, not FC complexity
+   
+4. **Rationale**: 
+   - V5 (layer1 + single FC): 97.59% ✅
+   - V1 (no backbone mod + simplified FC): 96.79% ✅
+   - New V2 (layer1 + simplified FC): Test if this combination maintains or exceeds V5
+
+**Implementation Priority**: Medium (interesting ablation study to validate architectural insights)
 
 ---
 
-### Priority 7: V4 - Exclude or Fix ❌ CRITICAL
+### Priority 7: V4 - Attempt Fix ❌ CRITICAL - OPTION B CHOSEN ✅
+
+**Decision: OPTION B - ATTEMPT FIX** ✅
+
+**Rationale**: Although V4 has fundamental architectural issues, we will attempt to fix it with maximum regularization to demonstrate comprehensive experimental coverage and understand the limits of regularization techniques.
 
 **Current Status:**
 - Test accuracy: 93.57% (worst performer)
 - Issue: Severe overfitting (train-val gap +9.24%)
 - Root cause: Removing layer4 eliminates critical semantic features
 
-**Recommended Actions:**
-
-**Option A: Exclude from Submission**
-- Justification: Architectural choice proven ineffective
-- Mention in report as "explored but rejected" with explanation
-
-**Option B: Attempt Fix (If Required)**
+**Chosen Fix Strategy:**
 ```python
-learning_rate = 5e-4       # More conservative
-weight_decay = 5e-3        # Strong regularization
-label_smoothing = 0.15     # Maximum smoothing
-dropout = 0.7              # Increased dropout
+learning_rate = 5e-4       # More conservative learning rate
+weight_decay = 5e-3        # Strongest regularization from grid search
+label_smoothing = 0.15     # Maximum label smoothing
+dropout = 0.7              # Increased dropout rate
 ```
-- Expected improvement: +1-2% (still likely <95%)
-- Risk: Still fundamentally flawed architecture
 
-**Implementation Priority**: Low (exclude unless specifically required)
+**Expected Outcome:**
+- Test accuracy: ~94.5-95.0% (+1.0-1.5% improvement)
+- Train-val gap: Reduced to ~5-6% (from 9.24%)
+- Still likely below baseline, but demonstrates regularization limits
+
+**Purpose**: 
+- Understand how much regularization can compensate for architectural flaws
+- Provide complete experimental coverage (all 8 variants)
+- Show methodological rigor in exploring even suboptimal architectures
+
+---
+
+## 📋 FINAL DECISIONS FOR FURTHER EXPERIMENTS
+
+**Based on the comprehensive analysis of all 16 files and grid search findings, here are our definitive choices for Run-4 experiments:**
+
+### ✅ CONFIRMED OPTIMIZATION STRATEGY:
+
+| Priority | Experiment | Decision | Configuration | Target Accuracy |
+|----------|------------|----------|---------------|-----------------|
+| 1️ | **Baseline** | ✅ OPTIMIZE | LR=1e-3, WD=1e-3, LS=0.10 | 97.2-97.7% |
+| 2️⃣ | **V5** | ✅ OPTIMIZE (Max Perf) | LR=5e-4, WD=5e-3, LS=0.05 | 98.0-98.5% |
+| 3️⃣ | **V3** | ✅ OPTIMIZE | LR=1e-3, WD=1e-3, LS=0.10 | 97.5-98.0% |
+| 4️ | **V1** | ✅ OPTIMIZE | LR=1e-3, WD=1e-3, LS=0.05 | 97.1-97.3% |
+| 5️⃣ | **V6** | ✅ OPTIMIZE | LR=1e-3, WD=1e-3, LS=0.10 | 96.7-96.9% |
+| 6️⃣ | **V7** | ✅ OPTIMIZE | LR=1e-3, WD=1e-3, LS=0.10 | 96.7-96.9% |
+| 7️⃣ | **V2** | ✅ NEW HYBRID TEST | Conv after layer1 (like V5) + FC=[256] (like V1) | 97.0-97.5% |
+| 8️⃣ | **V4** | ✅ ATTEMPT FIX | LR=5e-4, WD=5e-3, LS=0.15, dropout=0.7 | 94.5-95.0% |
+
+### 🎯 EXPERIMENT EXECUTION PLAN:
+
+**All 8 experiments will be re-run with optimized configurations in Run-4:**
+
+1. **Primary Models** (Priority 1-3): Baseline, V5, V3
+   - Will use optimal hyperparameters from grid search
+   - Expected to achieve 97%+ test accuracy
+   - Primary candidates for final submission
+
+2. **Secondary Models** (Priority 4-6): V1, V6, V7
+   - Will apply balanced configuration
+   - Complete the ablation study
+   - Provide comprehensive comparison
+
+3. **Special Test** (Priority 7): V2 Hybrid
+   - **New architecture**: Conv after layer1 + simplified FC [256]
+   - Tests if early-layer enhancement is the dominant factor
+   - Could validate or challenge V5's superiority
+   - Interesting ablation study: V5 backbone + V1 FC = ?
+
+4. **Exploratory Models** (Priority 8): V4
+   - Maximum regularization attempt to understand limits
+   - Demonstrate thorough experimental methodology
+
+### 📊 EXPECTED RUN-4 OUTCOMES:
+
+| Model | Run-3 Current | Run-4 Target | Improvement | Submission Priority |
+|-------|---------------|--------------|-------------|---------------------|
+| V5 | 97.59% | 98.0-98.5% | +0.5-1.0% | 🥇 Primary |
+| V3 | 97.19% | 97.5-98.0% | +0.3-0.8% | 🥈 Secondary |
+| Baseline | 95.18% | 97.2-97.7% | +2.0-2.5% | 📝 Reference |
+| V1 | 96.79% | 97.1-97.3% | +0.3-0.5% | 📊 Comparison |
+| **V2 (NEW)** | 95.98% | **97.0-97.5%** | **+1.0-1.5%** | 🧪 **Hybrid Test** |
+| V6 | 96.39% | 96.7-96.9% | +0.3-0.5% | 🔬 Ablation |
+| V7 | 96.39% | 96.7-96.9% | +0.3-0.5% | 🔬 Ablation |
+| V4 | 93.57% | 94.5-95.0% | +1.0-1.5% | 🔍 Exploratory |
+
+### 🚀 NEXT STEPS:
+
+1. **Create optimized experiment scripts** for all 8 variants
+2. **Apply grid search configurations** systematically
+3. **Execute Run-4** with all optimized experiments
+4. **Compare results** with Run-3 to validate optimization strategy
+5. **Select final models** for submission based on Run-4 performance
+
+**All decisions documented and ready for implementation!** ✅
 
 ---
 

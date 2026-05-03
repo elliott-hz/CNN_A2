@@ -56,48 +56,48 @@ class TrainingConfig:
 # Training configurations for different experiments
 
 TRAINING_CONFIG_BASELINE = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
+    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.1,                     # ✅ Grid search recommended
     use_amp=True,
-    description='Baseline training with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+    description='Baseline training with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10) from grid search'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
-    weight_decay=1e-3,
+    learning_rate=1e-3,
+    weight_decay=1e-3,                       # ✅ Already optimal
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.05,                    # ✅ UPDATED from 0.10 to 0.05 (grid search Comb 13)
     use_amp=True,
-    description='Enhanced FC head with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+    description='Enhanced FC head with optimal config (LR=1e-3, WD=1e-3, LS=0.05)'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
-    weight_decay=1e-3,
+    learning_rate=1e-3,
+    weight_decay=1e-3,                       # ✅ Already optimal
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
@@ -106,101 +106,101 @@ TRAINING_CONFIG_V2 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,
     use_amp=True,
-    description='CNN backbone modification with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+    description='Simplified V2: Add conv after layer2 with single FC head (removed enhanced FC), LR=1e-3, WD=1e-3, LS=0.10'
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Increased from 1e-4 to 1e-3 for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
+    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended from 5 to 10 epochs
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.1,                     # ✅ Grid search recommended
     use_amp=True,
-    description='Reduced depth backbone (layer3 removed) with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+    description='Remove layer3 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10) from grid search'
 )
 
-# Training configuration for V4 (remove layer4)
+# Training configuration for V4 (remove layer4) - ATTEMPT FIX with maximum regularization
 TRAINING_CONFIG_V4 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=5e-4,                      # ✅ UPDATED: More conservative LR for problematic architecture
+    weight_decay=5e-3,                       # ✅ UPDATED: Strongest regularization from grid search
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended warmup
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.15,                    # ✅ UPDATED: Maximum label smoothing for regularization
     use_amp=True,
-    description='Reduced depth backbone (layer4 removed) with higher LR (1e-3), extended warmup (10 epochs) and dynamic LR reduction'
+    description='V4 FIX ATTEMPT: Remove layer4 with maximum regularization (LR=5e-4, WD=5e-3, LS=0.15)'
 )
 
-# Training configuration for V5 (add conv blocks after layer1, single FC head)
+# Training configuration for V5 (add conv blocks after layer1, single FC head) - MAXIMUM PERFORMANCE
 TRAINING_CONFIG_V5 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=5e-4,                      # ✅ UPDATED: Conservative LR for best architecture (grid search Comb 07)
+    weight_decay=5e-3,                       # ✅ UPDATED: Strongest regularization from grid search
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended warmup
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.05,                    # ✅ UPDATED: Minimal smoothing for max performance
     use_amp=True,
-    description='Added conv blocks after layer1 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+    description='V5 MAXIMUM PERFORMANCE: Add conv after layer1 with optimal config (LR=5e-4, WD=5e-3, LS=0.05)'
 )
 
 # Training configuration for V6 (add conv blocks after layer2, single FC head)
 TRAINING_CONFIG_V6 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
+    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended warmup
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.1,                     # ✅ Grid search recommended
     use_amp=True,
-    description='Added conv blocks after layer2 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+    description='Add conv after layer2 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10)'
 )
 
 # Training configuration for V7 (add conv blocks after layer3, single FC head)
 TRAINING_CONFIG_V7 = TrainingConfig(
-    learning_rate=1e-3,                      # ↑ Higher LR for from-scratch training
-    weight_decay=1e-4,
+    learning_rate=1e-3,                      # ✅ Grid search recommended (balanced)
+    weight_decay=1e-3,                       # ✅ UPDATED from 1e-4 to 1e-3 (grid search optimal)
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
-    warmup_epochs=10,                        # ↑ Extended warmup
+    warmup_epochs=10,
     use_scheduler=True,
     scheduler_type='reduce_on_plateau',
     scheduler_patience=7,
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,
+    label_smoothing=0.1,                     # ✅ Grid search recommended
     use_amp=True,
-    description='Added conv blocks after layer3 with single FC head, higher LR (1e-3), extended warmup (10 epochs)'
+    description='Add conv after layer3 with optimal hyperparameters (LR=1e-3, WD=1e-3, LS=0.10)'
 )
 
 class ClassificationTrainer:

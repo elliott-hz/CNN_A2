@@ -1,9 +1,11 @@
-1. please read CNN_A2/README.md, tell if you finished reading and understanding
-2. read all the markdown files in the folder of CNN_A2/requirements/ , tell me if you finished reading and understanding
-3. now please read and understand the whole process of all 4 classification experiments in the package of CNN_A2/experiments/
+1. please read CNN_A2/README.md.
+2. read all the markdown files in the folder of CNN_A2/requirements/.
+3. now please read and understand the whole process of all 9 classification experiments in the package of CNN_A2/experiments/ (start with 'classification_' python files)
+4. my process of training have done for 3 times:
+4.1: only 4 classification experiments (all result shown in the folder of CNN_A2/outputs/train_history-run-1/) please read all of them (there is a summary markdown file named: experiment_analysis.md in this folder)
+4.2: only 5 classification experiments (all results shown in the folder of CNN_A2/outputs/train_history-run-2/) please read all of them (there is a summary markdonw file named: experiments_analysis.md in this folder)
+4.3: now i've also done a special experiment named: classification_ResNet50_baseline_gridsearch.py, which run with a combination of different settings and run for 27 different combinantion, and all the results shown in the folder of CNN_A2/outputs/train_history-baseline-gridsearch/run_20260502_161650/.,,,,, --TODO nned to do analysis and give a summary of the results.,,, this is used to adjust my baseline experiment (classification_ResNet50_baseline.py) to make the training seting more suited for baseline experiments.
+4.4: now i've already done the 3rd run of all 8 experiments from baseline to v7 (all results(md and csv files) shown in the folder of CNN_A2/outputs/train_history-run-3), please read all of them.   -- TODO need to do analysis and give a summary of the result. (current model and training setting, current performances (cons and pros.), and recommendations for futher experiments.
 
-tell me if you finish reading and understanding
 
-4. ok, i've already run this 4 experiments (all with parameter of : pretrained=false) and al lthe result are shown in the CNN_A2/outputs/ folder,,,please read the first sub folder of train_history-run-1/ ,which contains 4 separate csv files that clearly show every epoch's matrix in each experiment and one experiments_analysis markdonw file.
-
-read it and tell me if yo finished reading and understanding
+please read and analysis all my requirements step by step.

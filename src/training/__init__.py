@@ -32,5 +32,5 @@ __all__ = [
     'TRAINING_CONFIG_DEEPER_V2',
     'TRAINING_CONFIG_DEEPER_V3',
     'YOLOv8Trainer',
-    'FasterRCNNTainer'
+    'FasterRCNNTrainer'
 ]

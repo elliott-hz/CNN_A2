@@ -87,7 +87,7 @@ def main():
     print(f'Val path: {dataset_config.get("val", "N/A")}')
     print(f'Test path: {dataset_config.get("test", "N/A")}')
     
-    # Step 2: Initialize model with custom YAML
+    # Step 2: Initialize model with custom architecture
     print("\n[2/5] Initializing YOLOv8 model with custom architecture...")
     # Update model config with the command line argument
     model_config = MODEL_V3_CONFIG.copy()
@@ -97,11 +97,10 @@ def main():
     print(f'Model: Custom YOLOv8m (Shallower Backbone)')
     print(f'Input size: {MODEL_V3_CONFIG["input_size"]}')
     print(f'Pretrained: {use_pretrained}')
-    print(f'Custom YAML: {MODEL_V3_CONFIG["model_yaml"]}')
-    print(f'Customization: Reduced backbone depth by removing convolutional layers')
+    print(f'Customization type: {MODEL_V3_CONFIG["customize_type"]}')
+    print(f'Customization: Reduced backbone depth by modifying C2f modules')
     print(f'  - Location: Layer4 (P4/16 level)')
-    print(f'  - Change: C2f repeats 6 → 3 (removed 3 bottlenecks)')
-    print(f'  - Removed: 6 convolutional layers total')
+    print(f'  - Change: Reduced C2f repeats (lighter model)')
     print(f'  - Benefit: Faster training, reduced overfitting risk')
     
     # Step 3: Train using centralized configuration
@@ -139,12 +138,12 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Reduced backbone depth by modifying layer4 C2f module:\n"
-        "- Changed C2f repeats from 6 to 3 (P4/16 level)\n"
-        "- Removed 3 bottleneck blocks (6 convolutional layers)\n"
-        "- Maintains stable layer indices (no structural changes)\n"
-        "- Parameter reduction: ~3M\n"
-        "- Benefits: Faster inference, lower memory, reduced overfitting"
+        "Reduced backbone depth using PyTorch-based modification:\n"
+        "- Modified C2f modules to use reduced repetition counts\n"
+        "- Reduces number of convolutional layers in deeper parts of backbone\n"
+        "- Maintains stable architecture indices (no structural changes)\n"
+        "- Benefits: Faster inference, lower memory, reduced overfitting\n"
+        "- Purpose: Test if lighter model maintains reasonable performance"
     )
     
     evaluator.generate_experiment_summary(

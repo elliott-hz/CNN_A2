@@ -87,7 +87,7 @@ def main():
     print(f'Val path: {dataset_config.get("val", "N/A")}')
     print(f'Test path: {dataset_config.get("test", "N/A")}')
     
-    # Step 2: Initialize model with custom YAML
+    # Step 2: Initialize model with custom architecture
     print("\n[2/5] Initializing YOLOv8 model with custom architecture...")
     # Update model config with the command line argument
     model_config = MODEL_V2_CONFIG.copy()
@@ -97,11 +97,10 @@ def main():
     print(f'Model: Custom YOLOv8m (Deeper Backbone)')
     print(f'Input size: {MODEL_V2_CONFIG["input_size"]}')
     print(f'Pretrained: {use_pretrained}')
-    print(f'Custom YAML: {MODEL_V2_CONFIG["model_yaml"]}')
-    print(f'Customization: Added 2 convolutional layers in backbone')
+    print(f'Customization type: {MODEL_V2_CONFIG["customize_type"]}')
+    print(f'Customization: Added convolutional layers in backbone')
     print(f'  - Location: After layer2 (C2f module)')
-    print(f'  - Layer 3: Conv(128, 3x3, stride=1, padding=1)')
-    print(f'  - Layer 4: Conv(128, 3x3, stride=1, padding=1)')
+    print(f'  - Added layers: 2 Conv(128, 3x3, stride=1, padding=1)')
     print(f'  - Purpose: Deepen shallow-layer feature extraction')
     
     # Step 3: Train using centralized configuration
@@ -139,11 +138,11 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Added 2 convolutional layers in Backbone after layer2:\n"
-        "- Inserted Conv(128, 3x3, s=1, p=1) x2 after C2f module\n"
+        "Added convolutional layers in Backbone (PyTorch-based modification):\n"
+        "- Inserted Conv(128, 3x3, s=1, p=1) x2 after C2f module at layer index 2\n"
         "- Maintains spatial resolution while deepening feature extraction\n"
         "- Increases model depth for better shallow feature learning\n"
-        "- Parameter increase: ~0.5M"
+        "- Purpose: Test if deeper backbone improves fine-grained detection"
     )
     
     evaluator.generate_experiment_summary(

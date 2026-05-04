@@ -17,7 +17,7 @@ class YOLOv8Detector(nn.Module):
     
     def __init__(self, backbone: str = 'm', input_size: int = 640, 
                  confidence_threshold: float = 0.5, nms_iou_threshold: float = 0.45,
-                 pretrained: bool = True):
+                 pretrained: bool = True, model_yaml: str = None):
         """
         Initialize YOLOv8 detector.
         
@@ -27,6 +27,7 @@ class YOLOv8Detector(nn.Module):
             confidence_threshold: Detection confidence threshold
             nms_iou_threshold: NMS IoU threshold
             pretrained: Use pretrained weights
+            model_yaml: Path to custom YAML configuration file (optional)
         """
         super(YOLOv8Detector, self).__init__()
         
@@ -36,8 +37,16 @@ class YOLOv8Detector(nn.Module):
         self.nms_iou_threshold = nms_iou_threshold
         
         # Load YOLOv8 model
-        model_name = f'yolov8{backbone}.pt' if pretrained else f'yolov8{backbone}.yaml'
-        self.model = YOLO(model_name)
+        if model_yaml is not None:
+            # Load from custom YAML configuration
+            self.model = YOLO(model_yaml)
+            if pretrained:
+                # Load pretrained weights from standard model
+                self.model.load(f'yolov8{backbone}.pt')
+        else:
+            # Load standard model
+            model_name = f'yolov8{backbone}.pt' if pretrained else f'yolov8{backbone}.yaml'
+            self.model = YOLO(model_name)
         
         # Set thresholds
         self.model.model.conf = confidence_threshold
@@ -82,5 +91,24 @@ YOLOV8_BASELINE_CONFIG = {
     'input_size': 640,
     'confidence_threshold': 0.5,
     'nms_iou_threshold': 0.45,
-    'pretrained': True
+    'pretrained': True,
+    'model_yaml': None  # Use standard model
+}
+
+YOLOV8_V2_CONFIG = {
+    'backbone': 'm',
+    'input_size': 640,
+    'confidence_threshold': 0.5,
+    'nms_iou_threshold': 0.45,
+    'pretrained': True,
+    'model_yaml': 'src/models/yolov8m_custom_deeper.yaml'  # Custom deeper model
+}
+
+YOLOV8_V3_CONFIG = {
+    'backbone': 'm',
+    'input_size': 640,
+    'confidence_threshold': 0.5,
+    'nms_iou_threshold': 0.45,
+    'pretrained': True,
+    'model_yaml': 'src/models/yolov8m_custom_shallow.yaml'  # Custom shallower model
 }

@@ -5,7 +5,7 @@ Provides training frameworks for detection and classification models.
 """
 
 # Classification trainer
-from .classification_trainer import (
+from .ResNet50_trainer import (
     ClassificationTrainer,
     TrainingConfig,
     TRAINING_CONFIG_BASELINE,

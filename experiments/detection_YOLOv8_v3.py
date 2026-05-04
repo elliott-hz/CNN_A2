@@ -137,14 +137,14 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Removed 8 convolutional layers from backbone:\n"
-        "- Reduced layer4 C2f: 6 → 3 repeats (removed 6 conv layers)\n"
-        "- Reduced layer5 C2f: 3 → 2 repeats (removed 2 conv layers)"
+        "Reduced total convolutional layers by ~30%:\n"
+        "- Set depth_multiple to 0.7 in YAML configuration\n"
+        "- Automatically reduced C2f module repeats across Backbone and Neck"
     )
     
     evaluator.generate_experiment_summary(
         output_dir=str(output_dir),
-        experiment_name="V3: YOLOv8 Shallower Backbone",
+        experiment_name="V3: YOLOv8 Reduced Depth",
         model_config=model_config,
         training_config=TRAIN_V3_CONFIG,
         metrics=metrics,

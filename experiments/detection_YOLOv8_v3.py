@@ -71,8 +71,11 @@ def main():
     with open(dataset_config_path, 'r') as f:
         dataset_config = yaml.safe_load(f)
     
-    print(f'Dataset: {dataset_config["path"]}')
+    print(f'Dataset config: {dataset_config_path}')
     print(f'Classes: {dataset_config["nc"]} ({dataset_config["names"]})')
+    print(f'Train path: {dataset_config.get("train", "N/A")}')
+    print(f'Val path: {dataset_config.get("val", "N/A")}')
+    print(f'Test path: {dataset_config.get("test", "N/A")}')
     
     # Step 2: Initialize model with custom YAML
     print("\n[2/5] Initializing YOLOv8 model with custom architecture...")

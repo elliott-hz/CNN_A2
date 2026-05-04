@@ -38,7 +38,7 @@ CNN_A2/
 │   │   ├── YOLOv8DetectorModel.py         # YOLOv8 wrapper
 │   │   └── FasterRCNNDetectorModel.py     # Faster R-CNN wrapper
 │   ├── training/                   # Training logic
-│   │   ├── classification_trainer.py      # TrainingConfig + Trainer
+│   │   ├── ResNet50_trainer.py            # TrainingConfig + Trainer
 │   │   ├── YOLOv8_trainer.py              # YOLOv8 trainer
 │   │   └── FasterRCNN_trainer.py          # Faster R-CNN trainer
 │   ├── evaluation/                 # Evaluation & visualization
@@ -255,7 +255,7 @@ CUSTOMIZED_V2_CONFIG = {
 }
 ```
 
-**Training Configs** (`src/training/classification_trainer.py`):
+**Training Configs** (`src/training/ResNet50_trainer.py`):
 ```python
 @dataclass
 class TrainingConfig:

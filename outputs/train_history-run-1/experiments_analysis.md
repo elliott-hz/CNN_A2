@@ -338,7 +338,7 @@ CUSTOMIZED_V4_CONFIG = {
 - Cosine annealing is alternative but not necessary
 - ReduceLROnPlateau adapts to validation performance automatically
 
-**Implementation:** Modify training configs in `classification_trainer.py` or pass custom parameters when creating trainer.
+**Implementation:** Modify training configs in `ResNet50_trainer.py` or pass custom parameters when creating trainer.
 
 ---
 

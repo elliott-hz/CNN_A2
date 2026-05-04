@@ -15,7 +15,7 @@ YOLOV8_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 16,       # T4 GPU safe batch size
-    'epochs': 100,
+    'epochs': 5,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'use_amp': True,        # Mixed precision

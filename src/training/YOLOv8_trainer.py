@@ -15,7 +15,7 @@ YOLOV8_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 16,       # T4 GPU safe batch size
-    'epochs': 5,
+    'epochs': 2,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'use_amp': True,        # Mixed precision
@@ -28,7 +28,7 @@ YOLOV8_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0005, # Lower LR for deeper model stability
     'batch_size': 12,        # Smaller batch due to larger model memory usage
-    'epochs': 5,           # More epochs for convergence
+    'epochs': 2,           # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
     'use_amp': True,
@@ -41,7 +41,7 @@ YOLOV8_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.001,
     'batch_size': 20,        # Larger batch possible due to smaller model
-    'epochs': 5,            # Fewer epochs needed for simpler model
+    'epochs': 2,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'use_amp': True,

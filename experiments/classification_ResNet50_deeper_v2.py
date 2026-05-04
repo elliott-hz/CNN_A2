@@ -1,14 +1,14 @@
 """
-Experiment: ResNet50 Customized v5 Classification
+Experiment: ResNet50 Deeper v2 Classification
 
-TRUE CNN customization: Added convolutional blocks after layer1 ONLY.
-Single FC head (like Baseline) - isolating impact of early-layer conv blocks.
+TRUE CNN customization: Added convolutional blocks after layer2 ONLY.
+Single FC head (like Baseline) - isolating impact of mid-layer conv blocks.
 All layers trainable (NO freezing) - following teacher's methodology requirements.
 
-Purpose: Compare with V6/V7 to understand which layer benefits most from additional conv blocks.
+Purpose: Compare with V1/V3 to understand which layer benefits most from additional conv blocks.
 
 Usage:
-    python experiments/classification_ResNet50_v5.py [--pretrained True/False] [--dataAugmentation none/standard/enhanced]
+    python experiments/classification_ResNet50_deeper_v2.py [--pretrained True/False] [--dataAugmentation none/standard/enhanced]
     
     --pretrained: Use pretrained ImageNet weights (default: True from config)
                   Set to False to train from scratch
@@ -25,17 +25,17 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.models.ResNet50ClassifierModel import ResNet50Classifier, CUSTOMIZED_V5_CONFIG
-from src.training.ResNet50_trainer import ClassificationTrainer, TRAINING_CONFIG_V5
+from src.models.ResNet50ClassifierModel import ResNet50Classifier, CUSTOMIZED_DEEPER_V2_CONFIG
+from src.training.ResNet50_trainer import ClassificationTrainer, TRAINING_CONFIG_DEEPER_V2
 from src.data_processing.ClassificationDataLoader import create_classification_dataloaders
 from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 
 def main():
-    """Run Customized v5 Experiment."""
+    """Run Customized Deeper v2 Experiment."""
     
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='ResNet50 Customized v5 Classification Experiment')
+    parser = argparse.ArgumentParser(description='ResNet50 Deeper v2 Classification Experiment')
     parser.add_argument('--pretrained', type=str, default=None, 
                        help='Use pretrained weights: True, False, or None (use config default)')
     parser.add_argument('--dataAugmentation', type=str, default='none',
@@ -44,7 +44,7 @@ def main():
     args = parser.parse_args()
     
     print("=" * 80)
-    print("EXPERIMENT: ResNet50 Customized v5")
+    print("EXPERIMENT: ResNet50 Deeper v2")
     print("=" * 80)
     
     # Configuration
@@ -54,7 +54,7 @@ def main():
     
     # Create output directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    experiment_name = 'customized_v5'
+    experiment_name = 'deeper_v2'
     output_dir = Path(f'outputs/classification_{experiment_name}/run_{timestamp}')
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -88,16 +88,16 @@ def main():
     print("\n[2/5] Initializing customized model...")
     
     # Handle pretrained parameter
-    model_config = CUSTOMIZED_V5_CONFIG.copy()
+    model_config = CUSTOMIZED_DEEPER_V2_CONFIG.copy()
     if args.pretrained is not None:
         model_config['pretrained'] = args.pretrained.lower() == 'true'
     
     print('TRUE CNN Customizations:')
-    print('  1. Backbone modification: Added conv blocks after layer1')
+    print('  1. Backbone modification: Added conv blocks after layer2')
     print('  2. Single FC head: 2048 → 10 (like Baseline)')
     print('  3. Standard dropout: 0.5')
     print('  4. ALL layers trainable (NO freezing)')
-    print('\nPurpose: Test if adding conv blocks at early layer (layer1) improves performance')
+    print('\nPurpose: Test if adding conv blocks at mid layer (layer2) improves performance')
     
     if model_config['pretrained']:
         print('Pretrained: YES (ImageNet weights)')
@@ -112,13 +112,13 @@ def main():
     print(f'\nTotal params: {total_params:,}, Trainable: {trainable_params:,} ({trainable_params/total_params*100:.1f}%)')
     
     # Print detailed model architecture
-    trainer_temp = ClassificationTrainer(model, config=TRAINING_CONFIG_V5)
+    trainer_temp = ClassificationTrainer(model, config=TRAINING_CONFIG_DEEPER_V2)
     trainer_temp.print_model_summary()
     
     # Step 3: Train
     print("\n[3/5] Training...")
     trainer = trainer_temp  # Reuse the trainer we created for model summary
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=TRAINING_CONFIG_V5.label_smoothing)
+    criterion = torch.nn.CrossEntropyLoss(label_smoothing=TRAINING_CONFIG_DEEPER_V2.label_smoothing)
     
     history = trainer.train(
         train_loader, val_loader, criterion,
@@ -152,7 +152,7 @@ def main():
     evaluator.generate_experiment_summary(
         experiment_name=experiment_name,
         model_config=model_config,
-        training_config=TRAINING_CONFIG_V5,
+        training_config=TRAINING_CONFIG_DEEPER_V2,
         trainer_metrics={'best_val_acc': trainer.best_val_acc},
         evaluation_metrics=metrics,
         overfitting_analysis=analysis,

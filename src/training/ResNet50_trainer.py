@@ -73,7 +73,7 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     description='Baseline RUN-5: Lighter regularization (WD=5e-4) to recover from Run-4 degradation'
 )
 
-TRAINING_CONFIG_V1 = TrainingConfig(
+TRAINING_CONFIG_FC_V1 = TrainingConfig(
     learning_rate=5e-4,
     weight_decay=5e-4,                     
     optimizer_type='adamw',
@@ -88,28 +88,10 @@ TRAINING_CONFIG_V1 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,                   
     use_amp=True,
-    description='V1 RUN-5: No changes (already optimal, perfect consistency across runs)'
+    description='FC_v1 RUN-5: Enhanced FC head with moderate regularization'
 )
 
-TRAINING_CONFIG_V2 = TrainingConfig(
-    learning_rate=5e-4,
-    weight_decay=5e-4,                     
-    optimizer_type='adamw',
-    epochs=200,
-    use_warmup=True,
-    warmup_epochs=10,
-    use_scheduler=True,
-    scheduler_type='reduce_on_plateau',
-    scheduler_patience=7,
-    scheduler_factor=0.5,
-    use_early_stopping=True,
-    early_stopping_patience=50,
-    label_smoothing=0.1,
-    use_amp=True,
-    description='V2 RUN-5: No changes (already optimal, perfect consistency across runs)'
-)
-
-TRAINING_CONFIG_V3 = TrainingConfig(
+TRAINING_CONFIG_REDUCED_V1 = TrainingConfig(
     learning_rate=5e-4,                     
     weight_decay=5e-4,                      
     optimizer_type='adamw',
@@ -124,11 +106,11 @@ TRAINING_CONFIG_V3 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,                  
     use_amp=True,
-    description='V3 RUN-5: Moderate regularization (WD=2e-3) to potentially reach 97.5-97.8%'
+    description='Reduced_v1 RUN-5: Removed layer3 with moderate regularization'
 )
 
-# Training configuration for V4 (remove layer4) - Keep maximum regularization (successful fix)
-TRAINING_CONFIG_V4 = TrainingConfig(
+# Training configuration for Reduced v2 (remove layer4) - Keep maximum regularization (successful fix)
+TRAINING_CONFIG_REDUCED_V2 = TrainingConfig(
     learning_rate=5e-4,                     
     weight_decay=5e-4,                     
     optimizer_type='adamw',
@@ -143,11 +125,11 @@ TRAINING_CONFIG_V4 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.10,                    
     use_amp=True,
-    description='V4 RUN-5: Keep maximum regularization (fix was successful, no changes needed)'
+    description='Reduced_v2 RUN-5: Removed layer4 with strong regularization'
 )
 
-# Training configuration for V5 (add conv blocks after layer1) - Option A: Intermediate WD
-TRAINING_CONFIG_V5 = TrainingConfig(
+# Training configuration for Deeper v1 (add conv blocks after layer1) - Option A: Intermediate WD
+TRAINING_CONFIG_DEEPER_V1 = TrainingConfig(
     learning_rate=5e-4,                      
     weight_decay=5e-4,                      
     optimizer_type='adamw',
@@ -162,11 +144,11 @@ TRAINING_CONFIG_V5 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,                
     use_amp=True,
-    description='V5 RUN-5: Option A - Intermediate regularization (LR=1e-3, WD=2e-3, LS=0.10) targeting 97.3-97.8%'
+    description='Deeper_v1 RUN-5: Added conv after layer1 with intermediate regularization'
 )
 
-# Training configuration for V6 (add conv blocks after layer2) - Lighter regularization
-TRAINING_CONFIG_V6 = TrainingConfig(
+# Training configuration for Deeper v2 (add conv blocks after layer2) - Lighter regularization
+TRAINING_CONFIG_DEEPER_V2 = TrainingConfig(
     learning_rate=5e-4,                     
     weight_decay=5e-4,                       
     optimizer_type='adamw',
@@ -181,11 +163,11 @@ TRAINING_CONFIG_V6 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,                    
     use_amp=True,
-    description='V6 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-2.01% drop)'
+    description='Deeper_v2 RUN-5: Added conv after layer2 with lighter regularization'
 )
 
-# Training configuration for V7 (add conv blocks after layer3) - Lighter regularization
-TRAINING_CONFIG_V7 = TrainingConfig(
+# Training configuration for Deeper v3 (add conv blocks after layer3) - Lighter regularization
+TRAINING_CONFIG_DEEPER_V3 = TrainingConfig(
     learning_rate=5e-4,                     
     weight_decay=5e-4,                       
     optimizer_type='adamw',
@@ -200,7 +182,7 @@ TRAINING_CONFIG_V7 = TrainingConfig(
     early_stopping_patience=50,
     label_smoothing=0.1,                     
     use_amp=True,
-    description='V7 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-1.81% drop)'
+    description='Deeper_v3 RUN-5: Added conv after layer3 with lighter regularization'
 )
 
 class ClassificationTrainer:

@@ -130,7 +130,7 @@ TRAINING_CONFIG_V3 = TrainingConfig(
 # Training configuration for V4 (remove layer4) - Keep maximum regularization (successful fix)
 TRAINING_CONFIG_V4 = TrainingConfig(
     learning_rate=5e-4,                     
-    weight_decay=5e-4,                     
+    weight_decay=5e-3,                     
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -141,7 +141,7 @@ TRAINING_CONFIG_V4 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                    
+    label_smoothing=0.15,                    
     use_amp=True,
     description='V4 RUN-5: Keep maximum regularization (fix was successful, no changes needed)'
 )

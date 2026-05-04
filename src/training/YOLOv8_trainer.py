@@ -121,11 +121,12 @@ class YOLOv8Trainer:
             'weight_decay': self.weight_decay,
             'amp': self.use_amp,
             'project': str(output_path),
-            'name': 'train',
+            'name': 'train',  # This creates output_dir/train/ subdirectory
             'exist_ok': True,
             'patience': self.patience,
             'cos_lr': self.cos_lr,
             'close_mosaic': self.close_mosaic,
+            'verbose': True,  # Enable verbose output for debugging
         }
         
         # Add any additional kwargs (allows overriding if needed)
@@ -142,13 +143,34 @@ class YOLOv8Trainer:
         print(f"  Patience: {self.patience}")
         print(f"  Cosine LR: {self.cos_lr}")
         print(f"  Close Mosaic: {self.close_mosaic}")
-        print(f"  Output dir: {output_path}")
+        print(f"  Project (output base): {output_path}")
+        print(f"  Name (subdirectory): train")
+        print(f"  Expected output: {output_path / 'train'}")
         
         # Run training
         print("\nStarting training...")
         results = model.train_model(**train_args)
         
+        # Verify output location
+        expected_train_dir = output_path / 'train'
+        if expected_train_dir.exists():
+            print(f"\n✓ Training output verified at: {expected_train_dir}")
+            # List key files
+            if (expected_train_dir / 'results.csv').exists():
+                print(f'  ✓ results.csv found')
+            else:
+                print(f'  ⚠ Warning: results.csv not found in {expected_train_dir}')
+        else:
+            print(f"\n⚠ Warning: Expected training output not found at: {expected_train_dir}")
+            print(f"  Checking for alternative locations...")
+            # Search for recent train directories
+            import glob
+            possible_locations = glob.glob(str(output_path / '**/train'), recursive=True)
+            possible_locations += glob.glob('runs/detect/train*')
+            if possible_locations:
+                print(f"  Found potential locations: {possible_locations[:5]}")
+        
         print(f"\nTraining completed!")
-        print(f"Results saved to: {output_path}")
+        print(f"Results should be at: {output_path}")
         
         return {'results': results, 'output_dir': output_path}

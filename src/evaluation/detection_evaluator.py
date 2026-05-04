@@ -35,23 +35,44 @@ class DetectionEvaluator:
         default output structure to organized training/ and evaluation/ directories.
         
         Args:
-            output_dir: Root output directory containing 'train/' subdirectory
+            output_dir: Root output directory (e.g., outputs/detection_yolov8_v3/run_TIMESTAMP/)
             
         Returns:
             True if successful, False otherwise
         """
         output_path = Path(output_dir)
-        ultralytics_train_dir = output_path / 'train'
+        
+        # Based on the experiment script logic:
+        # - Trainer receives: output_dir / 'training' as output_dir parameter
+        # - Trainer sets: project=output_dir/training, name='train'
+        # - Ultralytics creates: output_dir/training/train/
+        # 
+        # So we need to look in: output_dir/training/train/
+        ultralytics_train_dir = output_path / 'training' / 'train'
         
         if not ultralytics_train_dir.exists():
-            print(f'⚠ Warning: Ultralytics train directory not found at {ultralytics_train_dir}')
+            print(f'⚠ Warning: Ultralytics training output not found at {ultralytics_train_dir}')
+            print(f'  Listing output_dir contents:')
+            if output_path.exists():
+                for item in output_path.iterdir():
+                    print(f'    - {item.name}')
+                # Also check training/ subdirectory
+                training_dir = output_path / 'training'
+                if training_dir.exists():
+                    print(f'  Contents of training/:')
+                    for item in training_dir.iterdir():
+                        print(f'    - training/{item.name}')
             return False
+        
+        print(f'✓ Found Ultralytics training output at: {ultralytics_train_dir}')
         
         success = True
         
-        # 1. Copy training history CSV to training/
+        # The CSV and plots are already in output_dir/training/train/
+        # We need to copy them to output_dir/training/ (parent level) and output_dir/evaluation/
+        
+        # 1. Copy training history CSV to training/ (same level, easier access)
         training_output_dir = output_path / 'training'
-        training_output_dir.mkdir(parents=True, exist_ok=True)
         
         results_csv = ultralytics_train_dir / 'results.csv'
         if results_csv.exists():
@@ -94,7 +115,7 @@ class DetectionEvaluator:
         Args:
             model: YOLOv8Detector instance
             test_dataset: Test dataset config path
-            output_dir: Directory to save results
+            output_dir: Directory to save results (typically output_dir/evaluation/)
             
         Returns:
             Evaluation metrics dictionary
@@ -106,9 +127,17 @@ class DetectionEvaluator:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Run validation using Ultralytics
+        # Run validation using Ultralytics with explicit output location
         print(f"Evaluating on dataset: {test_dataset}")
-        results = model.model.val(data=test_dataset)
+        print(f"Saving validation results to: {output_path}")
+        
+        # Use Ultralytics val() with explicit project and name
+        results = model.model.val(
+            data=test_dataset,
+            project=str(output_path),
+            name='val',  # Creates output_dir/val/ subdirectory
+            exist_ok=True
+        )
         
         # Extract metrics
         metrics = {
@@ -130,7 +159,7 @@ class DetectionEvaluator:
         with open(metrics_path, 'w') as f:
             json.dump(metrics, f, indent=2)
         
-        print(f'\nResults saved to: {output_path}')
+        print(f'\nEvaluation results saved to: {output_path}')
         
         return metrics
     

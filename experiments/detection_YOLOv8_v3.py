@@ -17,6 +17,7 @@ Customization Details:
 
 import sys
 import torch
+import argparse
 from pathlib import Path
 from datetime import datetime
 import yaml
@@ -25,23 +26,32 @@ import csv
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.models.YOLOv8DetectorModel import YOLOv8Detector, YOLOV8_V3_CONFIG
-from src.training.YOLOv8_trainer import YOLOv8Trainer
+from src.models.YOLOv8DetectorModel import YOLOv8Detector, YOLOV8_V3_CONFIG as MODEL_V3_CONFIG
+from src.training.YOLOv8_trainer import YOLOv8Trainer, YOLOV8_V3_CONFIG as TRAIN_V3_CONFIG
 from src.evaluation.detection_evaluator import DetectionEvaluator
+
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Run YOLOv8 V3 Shallower Backbone Experiment')
+    parser.add_argument('--pretrained', type=str, default='True', 
+                        choices=['True', 'False'],
+                        help='Whether to use pretrained weights (default: True)')
+    return parser.parse_args()
 
 
 def main():
     """Run Experiment V3: YOLOv8 with Shallower Backbone."""
+    args = parse_args()
+    use_pretrained = args.pretrained.lower() == 'true'
     
     print("=" * 80)
     print("EXPERIMENT V3: YOLOv8 with Shallower Backbone")
     print("=" * 80)
+    print(f"Use Pretrained Weights: {use_pretrained}")
     
-    # Configuration - Can use larger batch size due to smaller model
+    # Configuration
     DATASET_CONFIG = "data/25509225/Object_Detection/yolo/data.yaml"
-    EPOCHS = 80  # Fewer epochs for simpler model
-    BATCH_SIZE = 20  # Increased batch size due to smaller model
-    LR = 0.001
     
     # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -79,31 +89,28 @@ def main():
     
     # Step 2: Initialize model with custom YAML
     print("\n[2/5] Initializing YOLOv8 model with custom architecture...")
-    model = YOLOv8Detector(**YOLOV8_V3_CONFIG)
+    # Update model config with the command line argument
+    model_config = MODEL_V3_CONFIG.copy()
+    model_config['pretrained'] = use_pretrained
+    
+    model = YOLOv8Detector(**model_config)
     print(f'Model: Custom YOLOv8m (Shallower Backbone)')
-    print(f'Input size: {YOLOV8_V3_CONFIG["input_size"]}')
-    print(f'Custom YAML: {YOLOV8_V3_CONFIG["model_yaml"]}')
+    print(f'Input size: {MODEL_V3_CONFIG["input_size"]}')
+    print(f'Pretrained: {use_pretrained}')
+    print(f'Custom YAML: {MODEL_V3_CONFIG["model_yaml"]}')
     print(f'Customization: Removed 8 convolutional layers from backbone')
     print(f'  - Reduced layer4 C2f: 6 → 3 repeats (removed 6 conv layers)')
     print(f'  - Reduced layer5 C2f: 3 → 2 repeats (removed 2 conv layers)')
     
-    # Step 3: Train
+    # Step 3: Train using centralized configuration
     print("\n[3/5] Training model...")
-    trainer = YOLOv8Trainer(
-        learning_rate=LR,
-        batch_size=BATCH_SIZE,
-        epochs=EPOCHS,
-        optimizer='adam',
-        weight_decay=1e-4,
-        use_amp=True
-    )
+    trainer = YOLOv8Trainer(**TRAIN_V3_CONFIG)
     
     results = trainer.train(
         model=model,
         train_data=str(dataset_config_path),
         val_data=str(dataset_config_path),
-        output_dir=str(output_dir / 'training'),
-        patience=12  # Shorter patience for simpler model
+        output_dir=str(output_dir / 'training')
     )
     
     # Step 4: Evaluate
@@ -128,66 +135,27 @@ def main():
             shutil.copy(results_csv, csv_output)
             print(f'Training history CSV saved to: {csv_output}')
     
-    # Generate experiment summary
-    summary_path = output_dir / 'experiment_summary.md'
-    with open(summary_path, 'w') as f:
-        f.write(f'# Experiment V3: YOLOv8 with Shallower Backbone\n\n')
-        f.write(f'**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
-        f.write(f'## Configuration\n\n')
-        f.write(f'- Model: Custom YOLOv8m (Shallower Backbone)\n')
-        f.write(f'- Input size: {YOLOV8_V3_CONFIG["input_size"]}\n')
-        f.write(f'- Confidence threshold: {YOLOV8_V3_CONFIG["confidence_threshold"]}\n')
-        f.write(f'- NMS IoU threshold: {YOLOV8_V3_CONFIG["nms_iou_threshold"]}\n')
-        f.write(f'- Epochs: {EPOCHS}\n')
-        f.write(f'- Batch size: {BATCH_SIZE}\n')
-        f.write(f'- Learning rate: {LR}\n')
-        f.write(f'- Optimizer: Adam\n')
-        f.write(f'- Weight decay: 1e-4\n')
-        f.write(f'- Mixed precision: Enabled\n')
-        f.write(f'- Early stopping patience: 12\n\n')
-        f.write(f'## Customization Details\n\n')
-        f.write(f'- Type: **Removed Convolutional Layers**\n')
-        f.write(f'- Location: Backbone layer4 and layer5\n')
-        f.write(f'- Architecture changes:\n')
-        f.write(f'  1. Reduced layer4 C2f module: 6 repeats → 3 repeats\n')
-        f.write(f'     - Removed 3 bottleneck blocks (6 convolutional layers)\n')
-        f.write(f'  2. Reduced layer5 C2f module: 3 repeats → 2 repeats\n')
-        f.write(f'     - Removed 1 bottleneck block (2 convolutional layers)\n')
-        f.write(f'- Total removed: **8 convolutional layers**\n')
-        f.write(f'- Expected parameter decrease: ~12-15% (from ~25.9M to ~22-23M)\n')
-        f.write(f'- Custom YAML: `{YOLOV8_V3_CONFIG["model_yaml"]}`\n\n')
-        f.write(f'## Hypothesis\n\n')
-        f.write(f'Reducing convolutional layers in the backbone should:\n')
-        f.write(f'1. Decrease computational cost and memory usage\n')
-        f.write(f'2. Enable larger batch sizes for more stable training\n')
-        f.write(f'3. Potentially reduce overfitting on smaller datasets\n')
-        f.write(f'4. Faster inference speed at the cost of some accuracy\n\n')
-        f.write(f'## Results\n\n')
-        f.write(f'- mAP@0.5: {metrics["mAP50"]:.4f}\n')
-        f.write(f'- mAP@0.5:0.95: {metrics["mAP50_95"]:.4f}\n')
-        f.write(f'- Precision: {metrics["precision"]:.4f}\n')
-        f.write(f'- Recall: {metrics["recall"]:.4f}\n\n')
-        f.write(f'## Analysis\n\n')
-        f.write(f'This experiment tests whether a shallower backbone can maintain\n')
-        f.write(f'reasonable performance while being more efficient.\n\n')
-        f.write(f'Compared to V1 (baseline), we expect:\n')
-        f.write(f'- Lower computational cost (fewer FLOPs)\n')
-        f.write(f'- Faster training and inference\n')
-        f.write(f'- Ability to use larger batch sizes\n')
-        f.write(f'- Potential slight decrease in accuracy, especially for complex patterns\n\n')
-        f.write(f'This lightweight variant may be suitable for deployment scenarios\n')
-        f.write(f'where inference speed is prioritized over maximum accuracy.\n\n')
-        f.write(f'## Files\n\n')
-        f.write(f'- Training history: `training/training_history.csv`\n')
-        f.write(f'- Best model: `training/train/weights/best.pt`\n')
-        f.write(f'- Evaluation metrics: `evaluation/evaluation_metrics.json`\n')
-        f.write(f'- Custom architecture: `src/models/yolov8m_custom_shallow.yaml`\n')
+    # Generate experiment summary using evaluator
+    customization_desc = (
+        "Removed 8 convolutional layers from backbone:\n"
+        "- Reduced layer4 C2f: 6 → 3 repeats (removed 6 conv layers)\n"
+        "- Reduced layer5 C2f: 3 → 2 repeats (removed 2 conv layers)"
+    )
+    
+    evaluator.generate_experiment_summary(
+        output_dir=str(output_dir),
+        experiment_name="V3: YOLOv8 Shallower Backbone",
+        model_config=model_config,
+        training_config=TRAIN_V3_CONFIG,
+        metrics=metrics,
+        customization_details=customization_desc
+    )
     
     print(f'\n{"=" * 80}')
     print(f'EXPERIMENT COMPLETED')
     print(f'{"=" * 80}')
     print(f'Results saved to: {output_dir}')
-    print(f'Summary: {summary_path}')
+    print(f'Summary: {output_dir / "experiment_summary.md"}')
 
 
 if __name__ == '__main__':

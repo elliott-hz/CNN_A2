@@ -62,7 +62,19 @@ class DetectionEvaluator:
                     print(f'  Contents of training/:')
                     for item in training_dir.iterdir():
                         print(f'    - training/{item.name}')
-            return False
+            # Fallback: Ultralytics may have written to runs/detect/<relative output path>
+            try:
+                cwd = Path.cwd()
+                alt_path = cwd / 'runs' / 'detect' / output_path.relative_to(cwd)
+                alt_train_dir = alt_path / 'training' / 'train'
+                if alt_train_dir.exists():
+                    print(f'  Found fallback training output at {alt_train_dir}')
+                    ultralytics_train_dir = alt_train_dir
+                else:
+                    print(f'  Fallback training output not found at {alt_train_dir}')
+                    return False
+            except Exception:
+                return False
         
         print(f'✓ Found Ultralytics training output at: {ultralytics_train_dir}')
         
@@ -124,7 +136,7 @@ class DetectionEvaluator:
         print("YOLOv8 MODEL EVALUATION")
         print("=" * 80)
         
-        output_path = Path(output_dir)
+        output_path = Path(output_dir).resolve()
         output_path.mkdir(parents=True, exist_ok=True)
         
         # Run validation using Ultralytics with explicit output location

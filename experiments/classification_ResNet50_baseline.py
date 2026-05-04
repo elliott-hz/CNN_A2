@@ -23,7 +23,7 @@ from datetime import datetime
 sys.path.append(str(Path(__file__).parent.parent))
 
 from src.models.ResNet50ClassifierModel import ResNet50Classifier, BASELINE_CONFIG
-from src.training.classification_trainer import ClassificationTrainer, TRAINING_CONFIG_BASELINE
+from src.training.ResNet50_trainer import ClassificationTrainer, TRAINING_CONFIG_BASELINE
 from src.data_processing.ClassificationDataLoader import create_classification_dataloaders
 from src.evaluation.classification_evaluator import ClassificationEvaluator
 

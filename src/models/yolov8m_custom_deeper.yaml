@@ -1,5 +1,5 @@
 # YOLOv8m Custom - Deeper Backbone (V2)
-# Adds extra convolutional layers to the backbone for enhanced feature extraction.
+# Adds extra convolutional layers in the middle of the backbone (after P4).
 
 nc: 5
 depth_multiple: 1.0
@@ -17,36 +17,36 @@ backbone:
   # P4/16
   - [-1, 1, Conv, [512, 3, 2]]             # 5
   - [-1, 6, C2f, [512, True]]              # 6
-  # P5/32
-  - [-1, 1, Conv, [1024, 3, 2]]            # 7
-  - [-1, 3, C2f, [1024, True]]             # 8
-  - [-1, 1, SPPF, [1024, 5]]               # 9
   
-  # === Custom Added Layers (Deeper Backbone) ===
-  - [-1, 1, Conv, [512, 1, 1]]             # 10 (Reduce channels)
-  - [-1, 2, C2f, [512, True]]              # 11 (Extra feature processing)
-  - [-1, 1, Conv, [1024, 3, 1]]            # 12 (Restore channels)
+  # === Custom Added Layers (Deeper P4 Processing) ===
+  - [-1, 1, Conv, [512, 3, 1]]             # 7 (Extra Conv)
+  - [-1, 2, C2f, [512, True]]              # 8 (Extra C2f with 2 bottlenecks)
+  
+  # P5/32
+  - [-1, 1, Conv, [1024, 3, 2]]            # 9
+  - [-1, 3, C2f, [1024, True]]             # 10
+  - [-1, 1, SPPF, [1024, 5]]               # 11
 
 neck:
   # Upsample path 1 (P5 -> P4)
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 13
-  - [[-1, 6], 1, Concat, [1]]                    # 14 (Cat with P4 from backbone index 6)
-  - [-1, 3, C2f, [512]]                          # 15
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 12
+  - [[-1, 6], 1, Concat, [1]]                    # 13 (Cat with P4 from backbone index 6)
+  - [-1, 3, C2f, [512]]                          # 14
   
   # Upsample path 2 (P4 -> P3)
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 16
-  - [[-1, 4], 1, Concat, [1]]                    # 17 (Cat with P3 from backbone index 4)
-  - [-1, 3, C2f, [256]]                          # 18 (P3 Output for Detect)
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 15
+  - [[-1, 4], 1, Concat, [1]]                    # 16 (Cat with P3 from backbone index 4)
+  - [-1, 3, C2f, [256]]                          # 17 (P3 Output for Detect)
   
   # Downsample path 1 (P3 -> P4)
-  - [-1, 1, Conv, [256, 3, 2]]                   # 19
-  - [[-1, 15], 1, Concat, [1]]                   # 20 (Cat with previous P4 level)
-  - [-1, 3, C2f, [512]]                          # 21 (P4 Output for Detect)
+  - [-1, 1, Conv, [256, 3, 2]]                   # 18
+  - [[-1, 14], 1, Concat, [1]]                   # 19 (Cat with previous P4 level)
+  - [-1, 3, C2f, [512]]                          # 20 (P4 Output for Detect)
   
   # Downsample path 2 (P4 -> P5)
-  - [-1, 1, Conv, [512, 3, 2]]                   # 22
-  - [[-1, 12], 1, Concat, [1]]                   # 23 (Cat with final backbone layer)
-  - [-1, 3, C2f, [1024]]                         # 24 (P5 Output for Detect)
+  - [-1, 1, Conv, [512, 3, 2]]                   # 21
+  - [[-1, 11], 1, Concat, [1]]                   # 22 (Cat with final backbone layer SPPF)
+  - [-1, 3, C2f, [1024]]                         # 23 (P5 Output for Detect)
 
 head:
-  - [[18, 21, 24], 1, Detect, [nc]]              # Detect(P3, P4, P5)
+  - [[17, 20, 23], 1, Detect, [nc]]              # Detect(P3, P4, P5)

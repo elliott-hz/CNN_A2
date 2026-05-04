@@ -11,7 +11,11 @@ from .classification_trainer import (
     TRAINING_CONFIG_BASELINE,
     TRAINING_CONFIG_V1,
     TRAINING_CONFIG_V2,
-    TRAINING_CONFIG_V3
+    TRAINING_CONFIG_V3,
+    TRAINING_CONFIG_V4,
+    TRAINING_CONFIG_V5,
+    TRAINING_CONFIG_V6,
+    TRAINING_CONFIG_V7
 )
 
 # Detection trainers
@@ -25,6 +29,10 @@ __all__ = [
     'TRAINING_CONFIG_V1',
     'TRAINING_CONFIG_V2',
     'TRAINING_CONFIG_V3',
+    'TRAINING_CONFIG_V4',
+    'TRAINING_CONFIG_V5',
+    'TRAINING_CONFIG_V6',
+    'TRAINING_CONFIG_V7',
     'YOLOv8Trainer',
     'FasterRCNNTrainer'
 ]

@@ -56,8 +56,8 @@ class TrainingConfig:
 # Training configurations for Run-5 (Optimized based on Run-3 vs Run-4 analysis)
 
 TRAINING_CONFIG_BASELINE = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Keep proven LR
-    weight_decay=5e-4,                       # 🔄 RUN-5 UPDATE: Reduced from 1e-3 to 5e-4 (Priority 1: Investigate degradation)
+    learning_rate=5e-4,
+    weight_decay=5e-4, 
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -68,14 +68,14 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Keep balanced LS
+    label_smoothing=0.1,
     use_amp=True,
     description='Baseline RUN-5: Lighter regularization (WD=5e-4) to recover from Run-4 degradation'
 )
 
 TRAINING_CONFIG_V1 = TrainingConfig(
-    learning_rate=1e-3,
-    weight_decay=1e-3,                       # ✅ Already optimal (perfect consistency)
+    learning_rate=5e-4,
+    weight_decay=5e-4,                     
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -86,14 +86,14 @@ TRAINING_CONFIG_V1 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.05,                    # ✅ Already optimal (no change needed - Priority 5)
+    label_smoothing=0.1,                   
     use_amp=True,
     description='V1 RUN-5: No changes (already optimal, perfect consistency across runs)'
 )
 
 TRAINING_CONFIG_V2 = TrainingConfig(
-    learning_rate=1e-3,
-    weight_decay=1e-3,                       # ✅ Already optimal (perfect consistency)
+    learning_rate=5e-4,
+    weight_decay=5e-4,                     
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -110,8 +110,8 @@ TRAINING_CONFIG_V2 = TrainingConfig(
 )
 
 TRAINING_CONFIG_V3 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Keep proven LR
-    weight_decay=2e-3,                       # 🔄 RUN-5 UPDATE: Intermediate WD between 1e-3 and 5e-3 (Priority 4)
+    learning_rate=5e-4,                     
+    weight_decay=5e-4,                      
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -122,15 +122,15 @@ TRAINING_CONFIG_V3 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Keep balanced LS
+    label_smoothing=0.1,                  
     use_amp=True,
     description='V3 RUN-5: Moderate regularization (WD=2e-3) to potentially reach 97.5-97.8%'
 )
 
 # Training configuration for V4 (remove layer4) - Keep maximum regularization (successful fix)
 TRAINING_CONFIG_V4 = TrainingConfig(
-    learning_rate=5e-4,                      # ✅ Keep conservative LR (fix successful)
-    weight_decay=5e-3,                       # ✅ Keep strongest regularization (fix successful +2.82%)
+    learning_rate=5e-4,                     
+    weight_decay=5e-4,                     
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -141,15 +141,15 @@ TRAINING_CONFIG_V4 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.15,                    # ✅ Keep maximum label smoothing (fix successful)
+    label_smoothing=0.1,                    
     use_amp=True,
     description='V4 RUN-5: Keep maximum regularization (fix was successful, no changes needed)'
 )
 
 # Training configuration for V5 (add conv blocks after layer1) - Option A: Intermediate WD
 TRAINING_CONFIG_V5 = TrainingConfig(
-    learning_rate=1e-3,                      # 🔄 RUN-5 UPDATE: Return to proven LR from Run-3
-    weight_decay=2e-3,                       # 🔄 RUN-5 UPDATE: Intermediate WD (Priority 2, Option A)
+    learning_rate=5e-4,                      
+    weight_decay=5e-4,                      
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -160,15 +160,15 @@ TRAINING_CONFIG_V5 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # 🔄 RUN-5 UPDATE: Return to balanced LS from Run-3
+    label_smoothing=0.1,                
     use_amp=True,
     description='V5 RUN-5: Option A - Intermediate regularization (LR=1e-3, WD=2e-3, LS=0.10) targeting 97.3-97.8%'
 )
 
 # Training configuration for V6 (add conv blocks after layer2) - Lighter regularization
 TRAINING_CONFIG_V6 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Keep proven LR
-    weight_decay=1e-4,                       # 🔄 RUN-5 UPDATE: Return to lighter WD (Priority 3: Re-test with original config)
+    learning_rate=5e-4,                     
+    weight_decay=5e-4,                       
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -179,15 +179,15 @@ TRAINING_CONFIG_V6 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Keep balanced LS
+    label_smoothing=0.1,                    
     use_amp=True,
     description='V6 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-2.01% drop)'
 )
 
 # Training configuration for V7 (add conv blocks after layer3) - Lighter regularization
 TRAINING_CONFIG_V7 = TrainingConfig(
-    learning_rate=1e-3,                      # ✅ Keep proven LR
-    weight_decay=1e-4,                       # 🔄 RUN-5 UPDATE: Return to lighter WD (Priority 3: Re-test with original config)
+    learning_rate=5e-4,                     
+    weight_decay=5e-4,                       
     optimizer_type='adamw',
     epochs=200,
     use_warmup=True,
@@ -198,7 +198,7 @@ TRAINING_CONFIG_V7 = TrainingConfig(
     scheduler_factor=0.5,
     use_early_stopping=True,
     early_stopping_patience=50,
-    label_smoothing=0.1,                     # ✅ Keep balanced LS
+    label_smoothing=0.1,                     
     use_amp=True,
     description='V7 RUN-5: Lighter regularization (WD=1e-4) to recover from over-regularization (-1.81% drop)'
 )

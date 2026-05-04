@@ -19,7 +19,7 @@ from .ResNet50_trainer import (
 
 # Detection trainers
 from .YOLOv8_trainer import YOLOv8Trainer
-from .FasterRCNN_trainer import FasterRCNNTainer
+from .FasterRCNN_trainer import FasterRCNNTrainer
 
 __all__ = [
     'ClassificationTrainer',

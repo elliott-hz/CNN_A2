@@ -1,19 +1,25 @@
 # Detection Task Architecture - Assignment 2
 
 **Student ID:** 25509225  
-**Last Updated:** 2026-04-30  
+**Last Updated:** 2026-05-04  
 
 ---
 
 ## Architecture Overview
 
-The detection task follows the same clean, modular architecture as classification:
+The detection task implements two mainstream object detection frameworks with modular architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     EXPERIMENTS (Flow Control)               │
-│  exp01_detection_YOLOv8.py          (YOLOv8 Baseline)       │
-│  exp02_detection_FasterRCNN.py      (Faster R-CNN Template) │
+│                                                               │
+│  YOLOv8 Series:                                              │
+│  ├── detection_YOLOv8_v1.py       (Baseline)                 │
+│  ├── detection_YOLOv8_v2.py       (Deeper Backbone)          │
+│  └── detection_YOLOv8_v3.py       (Shallower Backbone)       │
+│                                                               │
+│  Faster R-CNN Series:                                        │
+│  └── exp02_detection_FasterRCNN.py  (Template)              │
 │                                                               │
 │  Responsibilities:                                            │
 │  - Load dataset config                                       │
@@ -38,74 +44,92 @@ The detection task follows the same clean, modular architecture as classificatio
 
 ---
 
+## Detection Frameworks
+
+### 1. YOLOv8 Series (Single-Stage Detector)
+
+**Architecture Type:** Anchor-free, single-stage detector  
+**Implementation:** Ultralytics YOLOv8 framework  
+**Customization Approach:** Direct PyTorch-based backbone modification
+
+**Key Features:**
+- Fast inference speed suitable for real-time applications
+- Supports multiple model scales (n/s/m/l/x)
+- Built-in data augmentation and training optimizations
+- Easy customization through direct layer manipulation
+
+**Customization Strategy:**
+- **V1 (Baseline):** Standard YOLOv8m without modifications
+- **V2 (Deeper):** Adds convolutional layers to backbone for enhanced feature extraction
+- **V3 (Shallower):** Reduces C2f module repeats for lighter, faster model
+
+**See detailed implementation:** [YOLOv8_Experiments_Summary.md](./YOLOv8_Experiments_Summary.md)
+
+---
+
+### 2. Faster R-CNN Series (Two-Stage Detector)
+
+**Architecture Type:** Region-based, two-stage detector  
+**Implementation:** Torchvision Faster R-CNN with ResNet50+FPN backbone  
+**Status:** Template created, awaiting dataloader implementation
+
+**Key Features:**
+- Higher accuracy potential through region proposal mechanism
+- Slower inference compared to single-stage detectors
+- More complex training pipeline requiring custom dataloaders
+- Better suited for scenarios prioritizing accuracy over speed
+
+**Planned Customization:**
+- Modify backbone depth/width
+- Adjust FPN configuration
+- Experiment with different anchor strategies
+
+---
+
 ## Module Responsibilities
 
 ### 1. `experiments/` - Flow Control
 
-**Files:**
-- `exp01_detection_YOLOv8.py` - YOLOv8 baseline experiment
-- `exp02_detection_FasterRCNN.py` - Faster R-CNN experiment (template)
-
 **Responsibilities:**
-- Load dataset configuration
-- Initialize model with configuration
-- Run training
-- Call evaluator
-- Save results and generate summary
+- Load dataset configuration from YAML files
+- Initialize detection models with appropriate configurations
+- Configure training hyperparameters
+- Orchestrate training → evaluation → summary generation pipeline
+- Manage output directory structure with timestamps
 
-**Example Flow (YOLOv8):**
-```python
-# 1. Load dataset config
-with open('data/processed/detection/dataset.yaml') as f:
-    dataset_config = yaml.safe_load(f)
-
-# 2. Initialize model
-model = YOLOv8Detector(**YOLOV8_BASELINE_CONFIG)
-
-# 3. Train
-trainer = YOLOv8Trainer(lr=0.001, batch_size=24, epochs=100)
-results = trainer.train(model, train_data, val_data, output_dir)
-
-# 4. Evaluate
-evaluator = DetectionEvaluator()
-metrics = evaluator.evaluate_yolov8(model, test_data, output_dir)
-
-# 5. Save summary
-save_experiment_summary(...)
-```
+**Design Principle:** Experiments contain only flow control logic, no implementation details.
 
 ---
 
 ### 2. `src/models/` - Model Definitions
 
 **Files:**
-- `YOLOv8DetectorModel.py` - YOLOv8 wrapper
+- `YOLOv8DetectorModel.py` - YOLOv8 wrapper with PyTorch-based customization
 - `FasterRCNNDetectorModel.py` - Faster R-CNN wrapper
 
-**Provides:**
-- Model classes
-- Configuration dictionaries
+**YOLOv8 Customization Implementation:**
+- **Direct Layer Manipulation:** Modifies backbone using PyTorch operations
+- **No YAML Dependencies:** Avoids index management issues in YAML configs
+- **Dynamic Modification:** `_add_conv_layers()` and `_reduce_conv_layers()` methods
+- **Pretrained Weight Compatibility:** Loads standard weights then applies modifications
 
-#### YOLOv8 Configuration
-
+**Configuration Pattern:**
 ```python
 YOLOV8_BASELINE_CONFIG = {
-    'backbone': 'm',                  # Medium model
+    'backbone': 'm',
     'input_size': 640,
-    'confidence_threshold': 0.5,
-    'nms_iou_threshold': 0.45,
-    'pretrained': True
-}
-```
-
-#### Faster R-CNN Configuration
-
-```python
-FASTERRCNN_BASELINE_CONFIG = {
-    'num_classes': 2,                 # 1 class + background
     'pretrained': True,
-    'min_size': 640,
-    'max_size': 640
+    'customize_type': None  # No customization
+}
+
+YOLOV8_V2_CONFIG = {
+    'backbone': 'm',
+    'customize_type': 'deeper'  # Adds conv layers
+}
+
+YOLOV8_V3_CONFIG = {
+    'backbone': 'm',
+    'customize_type': 'shallower'  # Reduces conv layers
 }
 ```
 
@@ -114,44 +138,30 @@ FASTERRCNN_BASELINE_CONFIG = {
 ### 3. `src/training/` - Training Frameworks
 
 **Files:**
-- `YOLOv8_trainer.py` - YOLOv8 trainer (uses Ultralytics)
+- `YOLOv8_trainer.py` - YOLOv8 trainer using Ultralytics API
 - `FasterRCNN_trainer.py` - Faster R-CNN trainer (custom loop)
 
-#### YOLOv8 Trainer
+**YOLOv8 Training Features:**
+- Centralized configuration via `YOLOV8_V[1-3]_CONFIG` dictionaries
+- Automatic mixed precision (AMP) support
+- Configurable optimizer, learning rate schedules, early stopping
+- Integrated with Ultralytics training pipeline
+- CSV metrics logging for detailed analysis
 
-**Responsibilities:**
-- Configure Ultralytics training
-- Run training via `model.train()`
-- Save results
-
-**Usage:**
+**Training Configuration Example:**
 ```python
-trainer = YOLOv8Trainer(
-    learning_rate=0.001,
-    batch_size=24,
-    epochs=100,
-    optimizer='adam',
-    weight_decay=1e-4,
-    use_amp=True
-)
-
-results = trainer.train(
-    model=model,
-    train_data='dataset.yaml',
-    val_data='dataset.yaml',
-    output_dir='outputs/training'
-)
+YOLOV8_V2_CONFIG = {
+    'learning_rate': 0.0005,
+    'batch_size': 12,
+    'epochs': 120,
+    'optimizer': 'adam',
+    'weight_decay': 5e-4,
+    'use_amp': True,
+    'patience': 20,
+    'cos_lr': True,
+    'close_mosaic': 10
+}
 ```
-
-#### Faster R-CNN Trainer
-
-**Responsibilities:**
-- Custom training loop
-- Optimizer management
-- Model checkpointing
-- Early stopping
-
-**Note:** Requires custom dataloader implementation for your dataset format.
 
 ---
 
@@ -159,203 +169,157 @@ results = trainer.train(
 
 **File:** `detection_evaluator.py`
 
-**Provides:** `DetectionEvaluator` class
+**Capabilities:**
+- **YOLOv8 Evaluation:** Leverages Ultralytics built-in validation
+- **Metrics Calculation:** mAP@0.5, mAP@0.5:0.95, Precision, Recall
+- **Result Visualization:** Confusion matrices, PR curves (future enhancement)
+- **Summary Generation:** Automated Markdown report creation
 
-**Methods:**
-- `evaluate_yolov8()` - Evaluate YOLOv8 using Ultralytics validation
-- `evaluate_fasterrcnn()` - Evaluate Faster R-CNN (placeholder)
-
-**Metrics:**
-- mAP@0.5
-- mAP@0.5:0.95
-- Precision
-- Recall
-
-**Usage:**
-```python
-evaluator = DetectionEvaluator()
-
-# For YOLOv8
-metrics = evaluator.evaluate_yolov8(
-    model=model,
-    test_dataset='dataset.yaml',
-    output_dir='outputs/evaluation'
-)
-
-# For Faster R-CNN (needs implementation)
-metrics = evaluator.evaluate_fasterrcnn(
-    model=model,
-    test_loader=test_loader,
-    output_dir='outputs/evaluation'
-)
+**Output Structure:**
 ```
-
----
-
-## Experiment Comparison
-
-### Experiment 01: YOLOv8 Baseline
-
-**Configuration:**
-- Model: YOLOv8m (medium)
-- Input size: 640x640
-- Confidence threshold: 0.5
-- NMS IoU: 0.45
-- Epochs: 100
-- Batch size: 24
-- Optimizer: Adam
-- Learning rate: 0.001
-- Mixed precision: Enabled
-
-**Status:** ✅ Fully implemented and ready to run
-
-### Experiment 02: Faster R-CNN Baseline
-
-**Configuration:**
-- Model: Faster R-CNN with ResNet50+FPN
-- Number of classes: 2 (1 class + background)
-- Image size: 640x640
-- Epochs: 50 (planned)
-- Batch size: 4 (smaller due to memory)
-- Learning rate: 0.001
-
-**Status:** ⚠️ Template created, needs dataloader implementation
-
-**TODO:**
-1. Implement data loader for Faster R-CNN format
-2. Complete training loop
-3. Implement evaluation metrics calculation
-
----
-
-## File Structure
-
+outputs/detection_yolov8_v[X]/run_TIMESTAMP/
+├── training/
+│   ├── train/
+│   │   ├── weights/best.pt
+│   │   └── results.csv
+│   └── training_history.csv
+├── evaluation/
+│   └── evaluation_metrics.json
+└── experiment_summary.md
 ```
-CNN_A2/
-├── experiments/                          [Flow Control]
-│   ├── exp01_detection_YOLOv8.py             (✅ Ready)
-│   └── exp02_detection_FasterRCNN.py         (⚠️ Template)
-│
-├── src/
-│   ├── models/                         [Model Definitions]
-│   │   ├── __init__.py
-│   │   ├── ResNet50ClassifierModel.py      (Classification)
-│   │   ├── YOLOv8DetectorModel.py          (Detection)
-│   │   └── FasterRCNNDetectorModel.py      (Detection)
-│   │
-│   ├── training/                       [Training Frameworks]
-│   │   ├── __init__.py
-│   │   ├── ResNet50_trainer.py               (Classification)
-│   │   ├── YOLOv8_trainer.py               (Detection)
-│   │   └── FasterRCNN_trainer.py           (Detection)
-│   │
-│   └── evaluation/                     [Evaluation Frameworks]
-│       ├── __init__.py
-│       ├── classification_evaluator.py     (Classification)
-│       └── detection_evaluator.py          (Detection)
-│
-├── data/processed/detection/
-│   └── dataset.yaml                    [Dataset Config]
-│
-└── outputs/                            [Results]
-    ├── exp01_yolov8_TIMESTAMP/
-    │   ├── training/
-    │   │   └── ... (Ultralytics outputs)
-    │   ├── evaluation/
-    │   │   └── evaluation_metrics.json
-    │   └── experiment_summary.md
-    │
-    └── exp02_fasterrcnn_TIMESTAMP/
-        └── ... (same structure)
-```
-
----
-
-## Running Experiments
-
-### YOLOv8 (Ready to Run)
-
-```bash
-python experiments/exp01_detection_YOLOv8.py
-```
-
-**Prerequisites:**
-- Dataset preprocessed: `bash scripts/run_data_preprocessing.sh`
-- Dataset config exists: `data/processed/detection/dataset.yaml`
-
-### Faster R-CNN (Template Only)
-
-```bash
-python experiments/exp02_detection_FasterRCNN.py
-```
-
-**Current Status:** Creates output directory and summary, but skips training/evaluation.
-
-**To Complete:**
-1. Implement `create_dataloaders()` function
-2. Uncomment training code in `main()`
-3. Implement Faster R-CNN evaluation in `DetectionEvaluator`
 
 ---
 
 ## Key Design Principles
 
-1. **Separation of Concerns:**
-   - Experiments control the flow
-   - Models define architecture
-   - Training handles optimization
-   - Evaluation calculates metrics
+### 1. Separation of Concerns
+- **Experiments:** Flow orchestration only
+- **Models:** Architecture definition + customization logic
+- **Training:** Hyperparameter management + training loop
+- **Evaluation:** Metrics calculation + reporting
 
-2. **Modularity:**
-   - YOLOv8 and Faster R-CNN have separate implementations
-   - No interference with classification code
-   - Easy to add new detection models (SSD, etc.)
+### 2. Modular Customization
+- YOLOv8 uses PyTorch-based direct layer manipulation
+- Avoids YAML index management complexity
+- Enables dynamic architecture changes at runtime
+- Maintains pretrained weight compatibility
 
-3. **Simplicity:**
-   - Each module has a single responsibility
-   - Minimal abstraction
-   - Clear interfaces
+### 3. Configuration Centralization
+- All hyperparameters in dedicated config dictionaries
+- Clear mapping between experiments and configurations
+- Easy comparison across variants
+- Reproducible experimental setups
 
-4. **Reproducibility:**
-   - Fixed configurations
-   - Saved experiment summaries
-   - Timestamped output directories
+### 4. Comprehensive Tracking
+- CSV logging for epoch-by-epoch metrics
+- Automated Markdown summaries
+- Timestamped output directories
+- Complete configuration documentation
+
+---
+
+## Dataset Configuration
+
+**Dataset Location:** `data/25509225/Object_Detection/yolo/data.yaml`
+
+**Format:** Ultralytics YOLO format with:
+- Train/valid/test split paths
+- Class names and count
+- Pre-segregated datasets (no resplitting required)
+
+**Compliance:** Uses provided splits as per teacher requirements.
+
+---
+
+## Hardware Optimization
+
+**Target GPU:** NVIDIA T4 (16GB VRAM, ~10GB usable)
+
+**Batch Size Recommendations:**
+- YOLOv8 Baseline (V1): 16
+- YOLOv8 Deeper (V2): 12 (reduced due to larger model)
+- YOLOv8 Shallower (V3): 20 (increased due to smaller model)
+- Faster R-CNN: 2-4 (two-stage detector memory intensive)
+
+**Optimization Techniques:**
+- Mixed precision training (AMP) enabled by default
+- Appropriate `num_workers` for DataLoader
+- Early stopping to prevent unnecessary training
+
+---
+
+## Comparison Matrix
+
+| Aspect | YOLOv8 Series | Faster R-CNN Series |
+|--------|--------------|---------------------|
+| **Detector Type** | Single-stage | Two-stage |
+| **Speed** | Fast (real-time capable) | Slower (accuracy-focused) |
+| **Implementation** | Ultralytics framework | Torchvision + custom loop |
+| **Customization** | PyTorch-based layer manipulation | Planned: backbone/FPN mods |
+| **Training Complexity** | Low (single command) | High (custom dataloader needed) |
+| **Memory Usage** | Moderate | High |
+| **Best For** | Speed-critical applications | Accuracy-critical scenarios |
+
+---
+
+## Running Experiments
+
+### YOLOv8 Series (Fully Implemented)
+
+```bash
+# V1: Baseline
+python experiments/detection_YOLOv8_v1.py
+
+# V2: Deeper Backbone
+python experiments/detection_YOLOv8_v2.py
+
+# V3: Shallower Backbone
+python experiments/detection_YOLOv8_v3.py
+```
+
+### Faster R-CNN (Template Stage)
+
+```bash
+python experiments/exp02_detection_FasterRCNN.py
+```
+
+**Note:** Faster R-CNN requires dataloader implementation before full execution.
+
+---
+
+## Documentation Structure
+
+This document provides high-level architectural overview. For detailed implementation specifics:
+
+- **YOLOv8 Details:** See [YOLOv8_Experiments_Summary.md](./YOLOv8_Experiments_Summary.md)
+  - Exact layer modifications
+  - Training hyperparameters
+  - Performance comparisons
+  - Analysis and findings
+
+- **Faster R-CNN Details:** See [FasterRCNN_DataLoader.md](./FasterRCNN_DataLoader.md)
+  - Dataloader implementation guide
+  - Training pipeline details
+  - Evaluation strategy
 
 ---
 
 ## Next Steps
 
-### For YOLOv8:
-1. Ensure dataset is preprocessed
-2. Run experiment: `python experiments/exp01_detection_YOLOv8.py`
-3. Monitor training progress
-4. Analyze results in `outputs/`
+### Immediate Priorities
+1. ✅ YOLOv8 V1/V2/V3 fully implemented and tested
+2. ⏳ Run all three YOLOv8 experiments
+3. ⏳ Analyze results and generate comparison plots
+4. ⚠️ Implement Faster R-CNN dataloader
+5. ⚠️ Complete Faster R-CNN training pipeline
 
-### For Faster R-CNN:
-1. Implement dataloader for your dataset format
-2. Complete training loop in `FasterRCNNTrainer`
-3. Implement evaluation metrics
-4. Test and validate
-
----
-
-## Comparison with Classification
-
-| Aspect | Classification | Detection |
-|--------|---------------|-----------|
-| Models | ResNet50 only | YOLOv8, Faster R-CNN |
-| Data Format | ImageFolder | COCO/YOLO format |
-| Training | Custom loop (PyTorch) | Ultralytics (YOLO) / Custom (Faster R-CNN) |
-| Metrics | Accuracy, F1, etc. | mAP, Precision, Recall |
-| Complexity | Simpler | More complex (bounding boxes) |
-
-Both follow the same architectural pattern:
-- Experiments → Flow control
-- Models → Architecture definition
-- Training → Optimization
-- Evaluation → Metrics
+### Future Enhancements
+- Add visualization tools for detection results
+- Implement cross-framework comparison utilities
+- Extend to additional detection architectures (SSD, RetinaNet)
 
 ---
 
 **Author:** Kuanlong Li (Student ID: 25509225)  
-**Course:** 42028 Deep Learning and Convolutional Neural Networks
+**Course:** 42028 Deep Learning and Convolutional Neural Networks  
+**Last Updated:** 2026-05-04

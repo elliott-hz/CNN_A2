@@ -7,6 +7,7 @@ Evaluates detection models and generates metrics and reports.
 import json
 from pathlib import Path
 from typing import Dict
+from datetime import datetime
 
 
 class DetectionEvaluator:
@@ -17,6 +18,7 @@ class DetectionEvaluator:
     - Run model evaluation
     - Calculate mAP metrics
     - Save evaluation results
+    - Generate experiment summaries
     """
     
     def __init__(self):
@@ -69,6 +71,67 @@ class DetectionEvaluator:
         print(f'\nResults saved to: {output_path}')
         
         return metrics
+    
+    def generate_experiment_summary(
+        self, 
+        output_dir: str, 
+        experiment_name: str,
+        model_config: Dict,
+        training_config: Dict,
+        metrics: Dict,
+        customization_details: str = ""
+    ):
+        """
+        Generate a comprehensive Markdown summary for the experiment.
+        
+        Args:
+            output_dir: Directory to save the summary
+            experiment_name: Name of the experiment (e.g., "V1: Baseline")
+            model_config: Dictionary containing model configurations
+            training_config: Dictionary containing training hyperparameters
+            metrics: Dictionary containing evaluation results
+            customization_details: String describing architectural changes
+        """
+        output_path = Path(output_dir)
+        summary_path = output_path / 'experiment_summary.md'
+        
+        with open(summary_path, 'w') as f:
+            f.write(f'# Experiment {experiment_name}\n\n')
+            f.write(f'**Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n')
+            
+            f.write(f'## Configuration\n\n')
+            # Model specific configs
+            if 'backbone' in model_config:
+                f.write(f'- Model: YOLOv8{model_config["backbone"]}\n')
+            if 'input_size' in model_config:
+                f.write(f'- Input size: {model_config["input_size"]}\n')
+            if 'confidence_threshold' in model_config:
+                f.write(f'- Confidence threshold: {model_config["confidence_threshold"]}\n')
+            if 'nms_iou_threshold' in model_config:
+                f.write(f'- NMS IoU threshold: {model_config["nms_iou_threshold"]}\n')
+            if 'model_yaml' in model_config and model_config['model_yaml']:
+                f.write(f'- Custom YAML: `{model_config["model_yaml"]}`\n')
+            
+            if customization_details:
+                f.write(f'- Customization: {customization_details}\n')
+            
+            f.write(f'\n## Training Hyperparameters\n\n')
+            for key, value in training_config.items():
+                f.write(f'- **{key}**: {value}\n')
+            
+            f.write(f'\n## Results\n\n')
+            f.write(f'- mAP@0.5: {metrics.get("mAP50", 0):.4f}\n')
+            f.write(f'- mAP@0.5:0.95: {metrics.get("mAP50_95", 0):.4f}\n')
+            f.write(f'- Precision: {metrics.get("precision", 0):.4f}\n')
+            f.write(f'- Recall: {metrics.get("recall", 0):.4f}\n')
+            
+            f.write(f'\n## Files\n\n')
+            f.write(f'- Training history: `training/training_history.csv`\n')
+            f.write(f'- Best model: `training/train/weights/best.pt`\n')
+            f.write(f'- Evaluation metrics: `evaluation/evaluation_metrics.json`\n')
+
+        print(f'Experiment summary saved to: {summary_path}')
+        return summary_path
     
     def evaluate_fasterrcnn(self, model, test_loader, output_dir: str) -> Dict:
         """

@@ -7,6 +7,49 @@ Handles YOLOv8 training process using Ultralytics framework.
 from pathlib import Path
 from typing import Dict, Any
 
+# ==============================================================================
+# Training Configurations for Experiments V1, V2, V3
+# ==============================================================================
+
+YOLOV8_V1_CONFIG = {
+    # Baseline Configuration
+    'learning_rate': 0.001,
+    'batch_size': 16,       # T4 GPU safe batch size
+    'epochs': 100,
+    'optimizer': 'adam',
+    'weight_decay': 1e-4,
+    'use_amp': True,        # Mixed precision
+    'patience': 15,         # Early stopping patience
+    'cos_lr': False,        # No cosine LR schedule for baseline
+    'close_mosaic': 0,      # Keep mosaic augmentation throughout
+}
+
+YOLOV8_V2_CONFIG = {
+    # Deeper Backbone Configuration (Added Conv Layers)
+    'learning_rate': 0.0005, # Lower LR for deeper model stability
+    'batch_size': 12,        # Smaller batch due to larger model memory usage
+    'epochs': 120,           # More epochs for convergence
+    'optimizer': 'adam',
+    'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
+    'use_amp': True,
+    'patience': 20,          # Longer patience
+    'cos_lr': True,          # Use cosine LR schedule for better convergence
+    'close_mosaic': 10,      # Close mosaic in last 10 epochs
+}
+
+YOLOV8_V3_CONFIG = {
+    # Shallower Backbone Configuration (Reduced Conv Layers)
+    'learning_rate': 0.001,
+    'batch_size': 20,        # Larger batch possible due to smaller model
+    'epochs': 80,            # Fewer epochs needed for simpler model
+    'optimizer': 'adam',
+    'weight_decay': 1e-4,
+    'use_amp': True,
+    'patience': 12,          # Shorter patience
+    'cos_lr': False,
+    'close_mosaic': 0,
+}
+
 
 class YOLOv8Trainer:
     """
@@ -19,7 +62,8 @@ class YOLOv8Trainer:
     
     def __init__(self, learning_rate: float = 0.001, batch_size: int = 24,
                  epochs: int = 100, optimizer: str = 'adam', 
-                 weight_decay: float = 1e-4, use_amp: bool = True):
+                 weight_decay: float = 1e-4, use_amp: bool = True,
+                 patience: int = 15, cos_lr: bool = False, close_mosaic: int = 0):
         """
         Initialize YOLOv8 trainer.
         
@@ -30,6 +74,9 @@ class YOLOv8Trainer:
             optimizer: Optimizer type ('adam', 'sgd', 'adamw')
             weight_decay: L2 regularization
             use_amp: Use mixed precision training
+            patience: Early stopping patience
+            cos_lr: Use cosine learning rate scheduler
+            close_mosaic: Stop mosaic augmentation N epochs before end
         """
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -37,6 +84,9 @@ class YOLOv8Trainer:
         self.optimizer = optimizer
         self.weight_decay = weight_decay
         self.use_amp = use_amp
+        self.patience = patience
+        self.cos_lr = cos_lr
+        self.close_mosaic = close_mosaic
     
     def train(self, model, train_data: str, val_data: str, 
              output_dir: str, **kwargs) -> Dict:
@@ -73,9 +123,12 @@ class YOLOv8Trainer:
             'project': str(output_path),
             'name': 'train',
             'exist_ok': True,
+            'patience': self.patience,
+            'cos_lr': self.cos_lr,
+            'close_mosaic': self.close_mosaic,
         }
         
-        # Add any additional kwargs
+        # Add any additional kwargs (allows overriding if needed)
         train_args.update(kwargs)
         
         print(f"Training configuration:")
@@ -84,7 +137,11 @@ class YOLOv8Trainer:
         print(f"  Batch size: {self.batch_size}")
         print(f"  Learning rate: {self.learning_rate}")
         print(f"  Optimizer: {self.optimizer}")
+        print(f"  Weight decay: {self.weight_decay}")
         print(f"  Image size: {model.input_size}")
+        print(f"  Patience: {self.patience}")
+        print(f"  Cosine LR: {self.cos_lr}")
+        print(f"  Close Mosaic: {self.close_mosaic}")
         print(f"  Output dir: {output_path}")
         
         # Run training

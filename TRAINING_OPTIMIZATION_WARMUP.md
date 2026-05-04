@@ -40,7 +40,7 @@
 
 ### 1. TrainingConfig Enhancement
 
-Added warmup support to [TrainingConfig](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/classification_trainer.py#L18-L52):
+Added warmup support to [TrainingConfig](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/ResNet50_trainer.py#L18-L52):
 
 ```python
 @dataclass
@@ -54,7 +54,7 @@ class TrainingConfig:
 
 ### 2. Warmup Implementation
 
-Added linear warmup logic in [ClassificationTrainer.train()](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/classification_trainer.py#L440-L450):
+Added linear warmup logic in [ClassificationTrainer.train()](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/ResNet50_trainer.py#L440-L450):
 
 ```python
 for epoch in range(epochs):
@@ -384,7 +384,7 @@ Epoch 6/200 | Train Loss: 1.850 | Train Acc: 0.350 | ...
 
 | File | Changes |
 |------|---------|
-| [src/training/classification_trainer.py](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/classification_trainer.py) | • Added `use_warmup` and `warmup_epochs` to TrainingConfig<br>• Implemented warmup logic in train loop<br>• Updated all 4 training configurations<br>• Enhanced training info display |
+| [src/training/ResNet50_trainer.py](file:///Users/elliott/vscode_workplace/CNN_A2/src/training/ResNet50_trainer.py) | • Added `use_warmup` and `warmup_epochs` to TrainingConfig<br>• Implemented warmup logic in train loop<br>• Updated all 4 training configurations<br>• Enhanced training info display |
 | [src/models/ResNet50ClassifierModel.py](file:///Users/elliott/vscode_workplace/CNN_A2/src/models/ResNet50ClassifierModel.py) | • Reduced V1 dropout: 0.7 → 0.5<br>• Reduced V2 dropout: 0.6 → 0.5 |
 | [experiments/classification_ResNet50_baseline.py](file:///Users/elliott/vscode_workplace/CNN_A2/experiments/classification_ResNet50_baseline.py) | • Updated initialization message to mention warmup |
 | [experiments/classification_ResNet50_v1.py](file:///Users/elliott/vscode_workplace/CNN_A2/experiments/classification_ResNet50_v1.py) | • Updated initialization message to mention warmup |

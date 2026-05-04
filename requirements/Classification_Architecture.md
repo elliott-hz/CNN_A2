@@ -62,7 +62,7 @@ The classification task follows a clean, modular architecture with clear separat
 ```python
 from src.data_processing.ClassificationDataLoader import create_baseline_dataloaders
 from src.models.ResNet50ClassifierModel import ResNet50Classifier, BASELINE_CONFIG
-from src.training.classification_trainer import ClassificationTrainer, TRAINING_CONFIG_BASELINE
+from src.training.ResNet50_trainer import ClassificationTrainer, TRAINING_CONFIG_BASELINE
 from src.evaluation.classification_evaluator import ClassificationEvaluator
 
 # 1. Load data (unified loader)
@@ -195,7 +195,7 @@ CUSTOMIZED_V3_CONFIG = {
 
 ### 3. `src/training/` - Training Framework
 
-**File:** `classification_trainer.py`
+**File:** `ResNet50_trainer.py`
 
 **Provides:** 
 - `TrainingConfig` dataclass (centralized configuration)
@@ -520,7 +520,7 @@ CNN_A2/
 │   │
 │   ├── training/                       [Training Framework]
 │   │   ├── __init__.py
-│   │   └── classification_trainer.py       (TrainingConfig + Trainer + CSV logging)
+│   │   └── ResNet50_trainer.py       (TrainingConfig + Trainer + CSV logging)
 │   │
 │   ├── data_processing/                [Unified Data Loading] ← NEW
 │   │   ├── __init__.py

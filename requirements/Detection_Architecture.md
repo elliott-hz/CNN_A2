@@ -245,7 +245,7 @@ CNN_A2/
 │   │
 │   ├── training/                       [Training Frameworks]
 │   │   ├── __init__.py
-│   │   ├── classification_trainer.py       (Classification)
+│   │   ├── ResNet50_trainer.py               (Classification)
 │   │   ├── YOLOv8_trainer.py               (Detection)
 │   │   └── FasterRCNN_trainer.py           (Detection)
 │   │

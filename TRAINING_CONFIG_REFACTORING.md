@@ -19,7 +19,7 @@
 
 ## 📊 New Architecture
 
-### **1. TrainingConfig Dataclass** (`src/training/classification_trainer.py`)
+### **1. TrainingConfig Dataclass** (`src/training/ResNet50_trainer.py`)
 
 ```python
 @dataclass
@@ -170,8 +170,8 @@ history = trainer.train(
 
 All 4 experiment scripts now follow the same simple pattern:
 
-```python
-from src.training.classification_trainer import (
+```
+from src.training.ResNet50_trainer import (
     ClassificationTrainer, 
     TRAINING_CONFIG_BASELINE  # or V1, V2, V3
 )
@@ -261,7 +261,7 @@ def train(self, train_loader, val_loader, criterion, output_dir):
 ```
 src/
 └── training/
-    └── classification_trainer.py
+    └── ResNet50_trainer.py
         ├── TrainingConfig (dataclass)
         ├── TRAINING_CONFIG_BASELINE
         ├── TRAINING_CONFIG_V1
@@ -269,10 +269,6 @@ src/
         ├── TRAINING_CONFIG_V3
         └── ClassificationTrainer class
             ├── __init__(model, config)
-            ├── train_epoch(...)
-            ├── validate(...)
-            └── train(train_loader, val_loader, criterion, output_dir)
-                # Uses self.config for ALL hyperparameters
 ```
 
 ---
@@ -337,7 +333,7 @@ Uses: `CUSTOMIZED_V2_CONFIG` + `TRAINING_CONFIG_V2`
 
 ### **Create Custom Configuration**
 ```python
-from src.training.classification_trainer import TrainingConfig
+from src.training.ResNet50_trainer import TrainingConfig
 
 my_config = TrainingConfig(
     learning_rate=5e-5,

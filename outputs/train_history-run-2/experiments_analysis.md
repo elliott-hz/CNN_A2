@@ -9,6 +9,7 @@
 - ✅ Extended warmup from 5 to 10 epochs
 - ✅ Fixed critical model bugs (forward pass, channel calculation, feature dimension detection)
 - ✅ Added V4 experiment (remove layer4 instead of layer3)
+- ✅ Added training configs to `ResNet50_trainer.py`
 
 ---
 
@@ -678,7 +679,7 @@ V2: +conv after layer2 + multi-FC → 98.70% val, 96.39% test
 - ✅ Created `classification_ResNet50_v6.py` (layer2)
 - ✅ Created `classification_ResNet50_v7.py` (layer3)
 - ✅ Added configs to `ResNet50ClassifierModel.py`
-- ✅ Added training configs to `classification_trainer.py`
+- ✅ Added training configs to `ResNet50_trainer.py`
 
 **To Run All Three**:
 ```bash

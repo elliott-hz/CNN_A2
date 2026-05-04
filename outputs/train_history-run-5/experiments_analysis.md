@@ -508,3 +508,115 @@
 1. **Primary Model:** V5 (97.99%) - highest accuracy, excellent generalization
 2. **Secondary Model:** Baseline (96.79%) - solid reference point
 3. **Ablation Study:** V3, V4 for architecture comparison
+
+---
+
+## 🔧 Run-6 Modification Plan: Full Hyperparameter Standardization
+
+### **Strategy: Pure Architectural Comparison**
+
+**Goal:** Compare different architectural modifications fairly by keeping ALL hyperparameters identical across experiments.
+
+**Priority:** Scientific rigor > Individual model performance
+
+---
+
+### **Unified Training Configuration (All 8 Experiments)**
+
+```python
+# Standard config for ALL experiments in Run-6
+LR = 5e-4        # Learning rate (unified)
+WD = 5e-4        # Weight decay (unified)
+LS = 0.1         # Label smoothing (unified)
+Optimizer = AdamW
+Scheduler = ReduceLROnPlateau (patience=7, factor=0.5)
+Warmup = 10 epochs
+Early Stopping = patience=50
+```
+
+---
+
+### **Why This Approach?**
+
+#### **1. Isolates Architecture Effects**
+- Any accuracy difference = **pure architectural impact**
+- No confounding from hyperparameter tuning
+- Clean cause-effect relationships
+
+#### **2. Fair Comparison**
+- All models trained under identical conditions
+- Direct apples-to-apples comparison
+- Eliminates "config advantage" bias
+
+#### **3. Scientific Rigor**
+- Controlled experiment design
+- Single variable changes (architecture only)
+- Reproducible and defensible methodology
+
+#### **4. Clear Insights**
+- Can definitively answer: "Which architecture is better?"
+- No ambiguity about whether improvement comes from arch or config
+- Easier to explain and justify results
+
+---
+
+### **Expected Trade-offs**
+
+#### **✅ Benefits:**
+- **Clean comparisons:** Position effects (V5 vs V6 vs V7) become crystal clear
+- **Fair removal tests:** Layer3 vs layer4 removal (V3 vs V4) directly comparable
+- **Backbone isolation:** V1 vs V2 shows pure conv block benefit
+- **Scientific validity:** Methodologically sound experimental design
+
+#### **⚠️ Risks:**
+- **Some models may underperform:** 
+  - V5 might drop from 97.99% (previously optimized with WD=5e-3, LS=0.05)
+  - V4 might overfit again (previously needed WD=5e-3, LS=0.15)
+- **Lower peak accuracies:** Sacrificing individual performance for comparability
+- **Potential regressions:** Proven configs abandoned for uniformity
+
+---
+
+### **Comparison Groups**
+
+With unified config, we can now make **fair comparisons**:
+
+| Group | Experiments | Question Answered |
+|-------|-------------|-------------------|
+| **Position Test** | V5 vs V6 vs V7 | Which layer position for conv blocks is best? |
+| **Removal Test** | V3 vs V4 | Which layer removal is less harmful? |
+| **Backbone Test** | V1 vs V2 | Does adding conv blocks after layer1 help? |
+| **Baseline Reference** | Baseline | How do customizations compare to standard ResNet50? |
+
+---
+
+### **Implementation**
+
+**Modified File:** `src/training/ResNet50_trainer.py`
+
+**Changes Made:**
+- All 8 training configs standardized to: LR=5e-4, WD=5e-4, LS=0.1
+- Removed experiment-specific optimizations
+- Maintained all other settings (optimizer, scheduler, warmup, etc.)
+
+**Next Steps:**
+1. Run all 8 experiments with unified config (Run-6)
+2. Compare results focusing on **relative differences** not absolute values
+3. Draw conclusions about architectural effectiveness
+
+---
+
+### **Success Metrics for Run-6**
+
+**Not about:** Achieving highest possible accuracy  
+**About:** Understanding which architectural changes work best under identical conditions
+
+**Key Questions:**
+1. Is layer1 >> layer2 >> layer3 for conv block placement? (V5 vs V6 vs V7)
+2. Is removing layer3 better than layer4? (V3 vs V4)
+3. Does backbone enhancement (conv blocks) outperform FC enhancement? (V2 vs V1)
+4. How much does architecture matter when config is fixed?
+
+---
+
+**This approach prioritizes scientific understanding over performance optimization, enabling clear, defensible conclusions about architectural design choices.**

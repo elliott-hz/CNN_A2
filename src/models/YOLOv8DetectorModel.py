@@ -118,42 +118,40 @@ class YOLOv8Detector(nn.Module):
     
     def _reduce_conv_layers(self):
         """
-        Reduce convolutional layers in the backbone by modifying C2f modules.
+        Reduce convolutional layers in the backbone by modifying one C2f module.
         Purpose: Create a lighter model with faster inference and reduced overfitting.
-        
-        Specifically targets C2f modules and reduces their repetitions.
         """
         try:
-            # Access backbone
+            # Access backbone sequential
             backbone = self.model.model.model
             
-            # Find C2f modules and reduce their repetitions
-            # In YOLOv8m, we want to reduce the C2f at index 6 (layer4 equivalent)
-            # which currently has 6 repeats, reduce to 3
+            # Identify the target C2f module to reduce. In current YOLOv8m,
+            # backbone index 6 is the C2f module at P4/16 with 4 bottleneck repeats.
+            target_idx = 6
+            target_layer = backbone[target_idx]
             
-            device = next(self.model.model.parameters()).device
+            if not isinstance(target_layer, C2f):
+                raise ValueError(f"Expected C2f at backbone index {target_idx}, found {type(target_layer)}")
             
-            # Strategy: Replace heavy C2f modules with lighter versions
-            # Access layer indices in the backbone
-            for idx, layer in enumerate(backbone):
-                # Check if this is a C2f module with 6 repeats (approximately at indices 4 or 6)
-                if isinstance(layer, C2f) and hasattr(layer, 'cv2'):
-                    # Try to reduce complexity by modifying the module
-                    # C2f structure: Bottleneck repetition count can be reduced
-                    # But this is complex to modify in-place
-                    
-                    # Alternative: mark for later handling or skip
-                    # The simpler approach is to just use the model as-is
-                    # but document that we're using the baseline
-                    pass
+            c1 = target_layer.cv1.conv.in_channels
+            c2 = target_layer.cv2.conv.out_channels
+            original_n = len(target_layer.m)
             
-            # A more reliable approach: reduce by using sequential operations
-            # Actually, let's just use the model as loaded - the YAML approach failed
-            # So we'll create a simpler "shallower" effect by just using different training
-            # configs and batch sizes (which we already do in the experiment script)
+            # Compute expansion ratio e from the existing C2f config
+            e = target_layer.cv1.conv.out_channels / (2 * c2)
+            shortcut = getattr(target_layer.m[0], 'shortcut', False)
+            g = target_layer.cv1.conv.groups
             
-            print("✅ Shallower model configured (using reduced training epochs and batch size)")
+            # New reduced repeat count: half the original (4 -> 2)
+            new_n = max(1, original_n // 2)
+            reduced_layer = C2f(c1, c2, n=new_n, shortcut=shortcut, g=g, e=e)
             
+            # Replace the layer in-place
+            backbone[target_idx] = reduced_layer
+            self.model.model.model = backbone
+            
+            print(f"✅ Replaced C2f at backbone index {target_idx}: original n={original_n}, new n={new_n}")
+            print("✅ Shallower backbone configured successfully")
         except Exception as e:
             print(f"⚠️ Warning: Could not reduce conv layers: {e}")
             print("Continuing with standard model...")

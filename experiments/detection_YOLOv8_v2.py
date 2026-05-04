@@ -138,15 +138,14 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Added 6 convolutional layers in backbone:\n"
-        "- 1x1 Conv (dimensionality reduction)\n"
-        "- C2f module with 2 bottlenecks (4 conv layers)\n"
-        "- 3x3 Conv (dimensionality restoration)"
+        "Added 12+ convolutional layers in the Neck:\n"
+        "- Inserted extra C2f modules after each feature fusion point\n"
+        "- Enhanced multi-scale feature extraction capability"
     )
     
     evaluator.generate_experiment_summary(
         output_dir=str(output_dir),
-        experiment_name="V2: YOLOv8 Deeper Backbone",
+        experiment_name="V2: YOLOv8 Enhanced Neck",
         model_config=model_config,
         training_config=TRAIN_V2_CONFIG,
         metrics=metrics,

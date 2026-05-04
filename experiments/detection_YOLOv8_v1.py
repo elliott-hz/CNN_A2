@@ -112,18 +112,11 @@ def main():
         output_dir=str(output_dir / 'evaluation')
     )
     
-    # Step 5: Save summary and CSV metrics
-    print("\n[5/5] Saving experiment summary and metrics...")
+    # Step 5: Save summary and CSV metrics + Visualizations
+    print("\n[5/5] Saving experiment summary, metrics, and visualizations...")
     
-    # Save detailed metrics to CSV
-    training_dir = output_dir / 'training' / 'train'
-    if training_dir.exists():
-        results_csv = training_dir / 'results.csv'
-        if results_csv.exists():
-            import shutil
-            csv_output = output_dir / 'training' / 'training_history.csv'
-            shutil.copy(results_csv, csv_output)
-            print(f'Training history CSV saved to: {csv_output}')
+    # Organize training artifacts (CSV + plots) using evaluator
+    evaluator.organize_training_artifacts(str(output_dir))
     
     # Generate experiment summary using evaluator
     evaluator.generate_experiment_summary(

@@ -286,7 +286,7 @@ BASELINE_CONFIG = {
 }
 
 # Customized v1: Enhanced FC head with reduced dimensions (FIXED for validation-set bias)
-CUSTOMIZED_V1_CONFIG = {
+CUSTOMIZED_FC_V1_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
@@ -295,20 +295,8 @@ CUSTOMIZED_V1_CONFIG = {
     'modify_backbone': False
 }
 
-# Customized v2: TRUE CNN - Added conv blocks after layer1 + SIMPLIFIED FC head (testing V5 architecture with V1 FC)
-CUSTOMIZED_V2_CONFIG = {
-    'num_classes': 10,
-    'dropout_rate': 0.5,
-    'pretrained': True,
-    'fc_hidden_dims': [256],                   # ✅ CHANGED: Single hidden layer like V1 (2048→256→10)
-    'use_batch_norm': True,
-    'modify_backbone': True,
-    'remove_layer': None,
-    'add_conv_after_layer': 'layer1'           # ✅ CHANGED: Same as V5 (conv blocks after layer1)
-}
-
 # Customized v3: Remove layer3 from backbone + single FC head
-CUSTOMIZED_V3_CONFIG = {
+CUSTOMIZED_REDUCED_V1_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
@@ -320,7 +308,7 @@ CUSTOMIZED_V3_CONFIG = {
 }
 
 # Customized v4: Remove layer4 from backbone + single FC head - ATTEMPT FIX with increased dropout
-CUSTOMIZED_V4_CONFIG = {
+CUSTOMIZED_REDUCED_V2_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.7,                     # ✅ UPDATED from 0.5 to 0.7 for stronger regularization
     'pretrained': True,
@@ -332,7 +320,7 @@ CUSTOMIZED_V4_CONFIG = {
 }
 
 # Customized v5: TRUE CNN - Added conv blocks after layer1 ONLY (single FC head)
-CUSTOMIZED_V5_CONFIG = {
+CUSTOMIZED_DEEPER_V1_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
@@ -344,7 +332,7 @@ CUSTOMIZED_V5_CONFIG = {
 }
 
 # Customized v6: TRUE CNN - Added conv blocks after layer2 ONLY (single FC head)
-CUSTOMIZED_V6_CONFIG = {
+CUSTOMIZED_DEEPER_V2_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,
@@ -356,7 +344,7 @@ CUSTOMIZED_V6_CONFIG = {
 }
 
 # Customized v7: TRUE CNN - Added conv blocks after layer3 ONLY (single FC head)
-CUSTOMIZED_V7_CONFIG = {
+CUSTOMIZED_DEEPER_V3_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
     'pretrained': True,

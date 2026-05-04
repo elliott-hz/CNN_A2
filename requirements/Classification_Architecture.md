@@ -1,7 +1,7 @@
 # Classification Task Architecture - Assignment 2
 
 **Student ID:** 25509225  
-**Last Updated:** 2026-05-01  
+**Last Updated:** 2026-05-04  
 
 ---
 
@@ -13,10 +13,20 @@ The classification task follows a clean, modular architecture with clear separat
 ┌─────────────────────────────────────────────────────────────┐
 │                     EXPERIMENTS (Flow Control)               │
 │                                                               │
-│  classification_ResNet50_baseline.py    (Baseline)           │
-│  classification_ResNet50_v1.py          (Customized V1)      │
-│  classification_ResNet50_v2.py          (Customized V2)      │
-│  classification_ResNet50_v3.py          (Customized V3)      │
+│  classification_ResNet50_baseline.py           (Baseline)    │
+│  classification_ResNet50_baseline_gridsearch.py (GridSearch) │
+│                                                               │
+│  FC Enhancement:                                              │
+│  ├── classification_ResNet50_FC_v1.py         (FC v1)        │
+│                                                               │
+│  Reduced Depth Models:                                        │
+│  ├── classification_ResNet50_reduced_v1.py    (Reduced v1)   │
+│  └── classification_ResNet50_reduced_v2.py    (Reduced v2)   │
+│                                                               │
+│  Deeper Backbone Models:                                      │
+│  ├── classification_ResNet50_deeper_v1.py     (Deeper v1)    │
+│  ├── classification_ResNet50_deeper_v2.py     (Deeper v2)    │
+│  └── classification_ResNet50_deeper_v3.py     (Deeper v3)    │
 │                                                               │
 │  Responsibilities:                                            │
 │  - Load data via unified ClassificationDataLoader            │
@@ -45,10 +55,22 @@ The classification task follows a clean, modular architecture with clear separat
 ### 1. `experiments/` - Flow Control
 
 **Files:**
+
+**Baseline Experiments:**
 - `classification_ResNet50_baseline.py` - Baseline experiment (standard ResNet50)
-- `classification_ResNet50_v1.py` - Customized V1 (enhanced FC head)
-- `classification_ResNet50_v2.py` - Customized V2 (CNN backbone modification)
-- `classification_ResNet50_v3.py` - Customized V3 (reduced depth)
+- `classification_ResNet50_baseline_gridsearch.py` - Hyperparameter grid search for baseline optimization
+
+**FC Enhancement:**
+- `classification_ResNet50_FC_v1.py` - Enhanced multi-layer FC head (NOT true CNN customization)
+
+**Reduced Depth Models (TRUE CNN):**
+- `classification_ResNet50_reduced_v1.py` - Removed layer3 to reduce depth
+- `classification_ResNet50_reduced_v2.py` - Removed layer4 to reduce depth further
+
+**Deeper Backbone Models (TRUE CNN):**
+- `classification_ResNet50_deeper_v1.py` - Added conv blocks after layer1
+- `classification_ResNet50_deeper_v2.py` - Added conv blocks after layer2
+- `classification_ResNet50_deeper_v3.py` - Added conv blocks after layer3
 
 **Responsibilities:**
 - Import unified data loader from `ClassificationDataLoader`
@@ -111,7 +133,7 @@ evaluator.generate_experiment_summary(
 
 **Provides:**
 - `ResNet50Classifier` class with backbone modification support
-- Four configuration dictionaries for different experiments
+- Nine configuration dictionaries for different experiments
 
 **Responsibilities:**
 - Define model architecture (standard or customized)
@@ -132,7 +154,7 @@ BASELINE_CONFIG = {
     'modify_backbone': False             # Standard ResNet50
 }
 
-# Customized V1 (classification_ResNet50_v1.py)
+# FC v1 (classification_ResNet50_FC_v1.py) - Enhanced FC Head
 CUSTOMIZED_V1_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.7,                # Higher dropout
@@ -142,19 +164,7 @@ CUSTOMIZED_V1_CONFIG = {
     'modify_backbone': False            # Standard backbone
 }
 
-# Customized V2 (classification_ResNet50_v2.py) - TRUE CNN CUSTOMIZATION
-CUSTOMIZED_V2_CONFIG = {
-    'num_classes': 10,
-    'dropout_rate': 0.6,
-    'pretrained': True,
-    'additional_fc_layers': True,       # Multi-layer FC with BatchNorm
-    'use_batch_norm': True,
-    'modify_backbone': True,            # ✓ Modify backbone!
-    'remove_layer': None,
-    'add_conv_after_layer': 'layer2'    # Add conv blocks after layer2
-}
-
-# Customized V3 (classification_ResNet50_v3.py) - TRUE CNN CUSTOMIZATION
+# Reduced v1 (classification_ResNet50_reduced_v1.py) - TRUE CNN CUSTOMIZATION
 CUSTOMIZED_V3_CONFIG = {
     'num_classes': 10,
     'dropout_rate': 0.5,
@@ -165,31 +175,80 @@ CUSTOMIZED_V3_CONFIG = {
     'remove_layer': 'layer3',           # Remove layer3 (reduce depth)
     'add_conv_after_layer': None
 }
+
+# Reduced v2 (classification_ResNet50_reduced_v2.py) - TRUE CNN CUSTOMIZATION
+CUSTOMIZED_V4_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'additional_fc_layers': False,      # Single FC layer
+    'use_batch_norm': True,
+    'modify_backbone': True,            # ✓ Modify backbone!
+    'remove_layer': 'layer4',           # Remove layer4 (reduce depth further)
+    'add_conv_after_layer': None
+}
+
+# Deeper v1 (classification_ResNet50_deeper_v1.py) - TRUE CNN CUSTOMIZATION
+CUSTOMIZED_V5_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'additional_fc_layers': False,      # Single FC layer
+    'use_batch_norm': True,
+    'modify_backbone': True,            # ✓ Modify backbone!
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer1'    # Add conv blocks after layer1
+}
+
+# Deeper v2 (classification_ResNet50_deeper_v2.py) - TRUE CNN CUSTOMIZATION
+CUSTOMIZED_V6_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'additional_fc_layers': False,      # Single FC layer
+    'use_batch_norm': True,
+    'modify_backbone': True,            # ✓ Modify backbone!
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer2'    # Add conv blocks after layer2
+}
+
+# Deeper v3 (classification_ResNet50_deeper_v3.py) - TRUE CNN CUSTOMIZATION
+CUSTOMIZED_V7_CONFIG = {
+    'num_classes': 10,
+    'dropout_rate': 0.5,
+    'pretrained': True,
+    'additional_fc_layers': False,      # Single FC layer
+    'use_batch_norm': True,
+    'modify_backbone': True,            # ✓ Modify backbone!
+    'remove_layer': None,
+    'add_conv_after_layer': 'layer3'    # Add conv blocks after layer3
+}
 ```
 
 **Architecture Differences:**
 
-| Component | Baseline | V1 (FC Enhanced) | V2 (Backbone+) | V3 (Reduced) |
-|-----------|----------|------------------|----------------|--------------|
-| Backbone | Standard | Standard | +Conv after layer2 | -Layer3 |
-| Classifier Head | 2048 → 10 | 2048→512→256→10 + BN | 2048→512→256→10 + BN | 2048 → 10 |
-| BatchNorm in FC | No | Yes | Yes | No |
-| Dropout | 0.5 | 0.7 | 0.6 | 0.5 |
-| Total Params | ~25.6M | ~25.6M | ~26.2M | ~16.4M |
-| Customization Type | None | FC only | **TRUE CNN** | **TRUE CNN** |
+| Experiment | Backbone Modification | FC Head | Dropout | Params | Customization Type |
+|------------|----------------------|---------|---------|--------|-------------------|
+| **Baseline** | Standard | 2048 → 10 | 0.5 | ~25.6M | None (control) |
+| **FC_v1** | Standard | 2048→512→256→10 + BN | 0.7 | ~25.6M | FC only |
+| **Reduced_v1** | -Layer3 | 2048 → 10 | 0.5 | ~16.4M | **TRUE CNN** |
+| **Reduced_v2** | -Layer4 | 1024 → 10 | 0.5 | ~10.8M | **TRUE CNN** |
+| **Deeper_v1** | +Conv after layer1 | 2048 → 10 | 0.5 | ~26.0M | **TRUE CNN** |
+| **Deeper_v2** | +Conv after layer2 | 2048 → 10 | 0.5 | ~26.2M | **TRUE CNN** |
+| **Deeper_v3** | +Conv after layer3 | 2048 → 10 | 0.5 | ~26.4M | **TRUE CNN** |
 
 **Backbone Modification Methods:**
 
 1. **Add Convolutional Blocks** (`add_conv_after_layer`):
    - Inserts `[Conv2d → BN → ReLU → Conv2d → BN → ReLU]` after specified layer
    - Increases model depth and capacity
-   - Used in V2 (after layer2)
+   - Used in Deeper_v1 (layer1), Deeper_v2 (layer2), Deeper_v3 (layer3)
 
 2. **Remove Layers** (`remove_layer`):
    - Sets specified layer to `nn.Identity()`
    - Adjusts subsequent layers to handle channel dimension changes
    - Reduces model depth and parameters
-   - Used in V3 (remove layer3)
+   - Used in Reduced_v1 (remove layer3), Reduced_v2 (remove layer4)
 
 ---
 
@@ -199,7 +258,7 @@ CUSTOMIZED_V3_CONFIG = {
 
 **Provides:** 
 - `TrainingConfig` dataclass (centralized configuration)
-- Four training configurations
+- Nine training configurations for all experiments
 - `ClassificationTrainer` class
 
 **TrainingConfig Dataclass:**
@@ -235,7 +294,7 @@ class TrainingConfig:
     description: str = 'Default training configuration'
 ```
 
-**Four Training Configurations:**
+**Nine Training Configurations:**
 
 ```python
 # Baseline
@@ -248,7 +307,7 @@ TRAINING_CONFIG_BASELINE = TrainingConfig(
     description='Baseline training with moderate regularization'
 )
 
-# V1 - Enhanced FC with stronger regularization
+# FC_v1 - Enhanced FC with stronger regularization
 TRAINING_CONFIG_V1 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=5e-3,              # ↑ Stronger
@@ -258,24 +317,54 @@ TRAINING_CONFIG_V1 = TrainingConfig(
     description='Enhanced FC head with stronger regularization'
 )
 
-# V2 - CNN backbone modification with enhanced FC
-TRAINING_CONFIG_V2 = TrainingConfig(
-    learning_rate=1e-4,
-    weight_decay=5e-3,
-    epochs=60,
-    early_stopping_patience=12,
-    label_smoothing=0.15,
-    description='CNN backbone modification with enhanced FC head and strong regularization'
-)
-
-# V3 - Reduced depth backbone
+# Reduced_v1 - Removed layer3
 TRAINING_CONFIG_V3 = TrainingConfig(
     learning_rate=1e-4,
     weight_decay=1e-4,
     epochs=50,
     early_stopping_patience=10,
     label_smoothing=0.1,
-    description='Reduced depth backbone with standard regularization'
+    description='Reduced depth backbone (layer3 removed) with standard regularization'
+)
+
+# Reduced_v2 - Removed layer4
+TRAINING_CONFIG_V4 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    epochs=50,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    description='Reduced depth backbone (layer4 removed) with standard regularization'
+)
+
+# Deeper_v1 - Added conv after layer1
+TRAINING_CONFIG_V5 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    epochs=50,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    description='Deeper backbone (conv added after layer1) with standard regularization'
+)
+
+# Deeper_v2 - Added conv after layer2
+TRAINING_CONFIG_V6 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    epochs=50,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    description='Deeper backbone (conv added after layer2) with standard regularization'
+)
+
+# Deeper_v3 - Added conv after layer3
+TRAINING_CONFIG_V7 = TrainingConfig(
+    learning_rate=1e-4,
+    weight_decay=1e-4,
+    epochs=50,
+    early_stopping_patience=10,
+    label_smoothing=0.1,
+    description='Deeper backbone (conv added after layer3) with standard regularization'
 )
 ```
 
@@ -376,7 +465,7 @@ train_loader, val_loader, test_loader, classes = create_enhanced_dataloaders(DAT
 - Create confusion matrix (high-resolution seaborn heatmap)
 - **Plot training curves** (loss + accuracy dual-panel)
 - **Analyze overfitting/underfitting patterns**
-- **Generate comprehensive experiment summary** (markdown)
+- **Generate comprehensive experiment summary** (abstracted in evaluator)
 - Save evaluation results (JSON + report)
 
 **New Methods:**
@@ -451,55 +540,89 @@ evaluator.generate_experiment_summary(
 3. ✅ **Consistent dataset splits** - Same split used across all experiments
 4. ✅ **Single-phase training** - Simplified training pipeline
 
-### Four Experiments Overview
+### Nine Experiments Overview
 
-| Experiment | Model Config | Training Config | Augmentation | Customization Type | Key Features |
-|------------|-------------|-----------------|--------------|-------------------|--------------|
-| **Baseline** | BASELINE_CONFIG | TRAINING_CONFIG_BASELINE | Standard | None (control) | Standard ResNet50 |
-| **V1** | CUSTOMIZED_V1_CONFIG | TRAINING_CONFIG_V1 | Enhanced | FC enhancement | Multi-layer FC + BN |
-| **V2** | CUSTOMIZED_V2_CONFIG | TRAINING_CONFIG_V2 | Enhanced | **TRUE CNN** | +Conv after layer2 |
-| **V3** | CUSTOMIZED_V3_CONFIG | TRAINING_CONFIG_V3 | Standard | **TRUE CNN** | -Layer3 (reduced) |
+| Experiment | Model Config | Training Config | Customization Type | Key Features |
+|------------|-------------|-----------------|-------------------|--------------|
+| **Baseline** | BASELINE_CONFIG | TRAINING_CONFIG_BASELINE | None (control) | Standard ResNet50 |
+| **GridSearch** | BASELINE_CONFIG | Variable configs | Hyperparameter optimization | Systematic LR/WD/LS search |
+| **FC_v1** | CUSTOMIZED_V1_CONFIG | TRAINING_CONFIG_V1 | FC enhancement | Multi-layer FC + BN + dropout 0.7 |
+| **Reduced_v1** | CUSTOMIZED_V3_CONFIG | TRAINING_CONFIG_V3 | **TRUE CNN** | Removed layer3 (~16.4M params) |
+| **Reduced_v2** | CUSTOMIZED_V4_CONFIG | TRAINING_CONFIG_V4 | **TRUE CNN** | Removed layer4 (~10.8M params) |
+| **Deeper_v1** | CUSTOMIZED_V5_CONFIG | TRAINING_CONFIG_V5 | **TRUE CNN** | +Conv after layer1 (~26.0M params) |
+| **Deeper_v2** | CUSTOMIZED_V6_CONFIG | TRAINING_CONFIG_V6 | **TRUE CNN** | +Conv after layer2 (~26.2M params) |
+| **Deeper_v3** | CUSTOMIZED_V7_CONFIG | TRAINING_CONFIG_V7 | **TRUE CNN** | +Conv after layer3 (~26.4M params) |
 
 ### Detailed Comparison
 
 #### **Baseline Experiment**
 - **Model:** Standard ResNet50 with single FC layer (2048→10)
 - **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
-- **Augmentation:** Standard (rotation 15°, color jitter 0.2)
 - **Purpose:** Control group for comparison
 
-#### **V1 Experiment (FC Enhancement)**
+#### **GridSearch Experiment**
+- **Model:** Standard ResNet50 (same as baseline)
+- **Training:** Tests 27 combinations of LR × WD × Label Smoothing
+- **Purpose:** Find optimal hyperparameters for baseline configuration
+- **Output:** CSV file with all results and best configuration identified
+
+#### **FC_v1 Experiment (FC Enhancement)**
 - **Model:** Enhanced FC head (2048→512→256→10) with BatchNorm
 - **Training:** 60 epochs, lr=1e-4, weight_decay=5e-3, patience=12
-- **Augmentation:** Enhanced (rotation 20°, color jitter 0.3+hue, random affine)
 - **Purpose:** Test if deeper FC head improves performance
 - **Note:** NOT true CNN customization (only FC layers modified)
 
-#### **V2 Experiment (TRUE CNN Customization)**
-- **Model:** Added convolutional blocks after layer2 + enhanced FC head
-- **Training:** 60 epochs, lr=1e-4, weight_decay=5e-3, patience=12
-- **Augmentation:** Enhanced (same as V1)
-- **Purpose:** Test if backbone modification improves feature extraction
-- **Compliance:** ✅ Meets teacher's requirement for true CNN customization
-
-#### **V3 Experiment (TRUE CNN Customization)**
+#### **Reduced_v1 Experiment (TRUE CNN Customization)**
 - **Model:** Removed layer3 (reduced depth) with standard FC head
 - **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
-- **Augmentation:** Standard (same as baseline)
-- **Purpose:** Test if reduced depth affects performance (lighter model)
+- **Purpose:** Test if reduced depth affects performance (lighter model ~16.4M)
+- **Compliance:** ✅ Meets teacher's requirement for true CNN customization
+
+#### **Reduced_v2 Experiment (TRUE CNN Customization)**
+- **Model:** Removed layer4 (further reduced depth) with adjusted FC (1024→10)
+- **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
+- **Purpose:** Test even lighter model (~10.8M params)
+- **Compliance:** ✅ Meets teacher's requirement for true CNN customization
+
+#### **Deeper_v1 Experiment (TRUE CNN Customization)**
+- **Model:** Added convolutional blocks after layer1 with standard FC head
+- **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
+- **Purpose:** Test if adding conv at early layer improves shallow feature extraction
+- **Compliance:** ✅ Meets teacher's requirement for true CNN customization
+
+#### **Deeper_v2 Experiment (TRUE CNN Customization)**
+- **Model:** Added convolutional blocks after layer2 with standard FC head
+- **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
+- **Purpose:** Test if adding conv at mid layer improves feature extraction
+- **Compliance:** ✅ Meets teacher's requirement for true CNN customization
+
+#### **Deeper_v3 Experiment (TRUE CNN Customization)**
+- **Model:** Added convolutional blocks after layer3 with standard FC head
+- **Training:** 50 epochs, lr=1e-4, weight_decay=1e-4, patience=10
+- **Purpose:** Test if adding conv at late layer improves high-level feature extraction
 - **Compliance:** ✅ Meets teacher's requirement for true CNN customization
 
 ### Fair Comparison Strategy
 
-**Within Same Augmentation Type:**
-- **Baseline vs V3:** Both use standard augmentation → Direct comparison valid
-  - Difference is purely due to model architecture (standard vs reduced depth)
-- **V1 vs V2:** Both use enhanced augmentation → Direct comparison valid
-  - Difference is purely due to model architecture (FC only vs backbone+FC)
+**Controlled Comparisons:**
 
-**Cross Augmentation Types:**
-- Comparisons between standard/enhanced groups should note that differences may come from both model AND augmentation
-- This is intentional: tests if complex models benefit more from stronger augmentation
+1. **Reduced Models (v1 vs v2):**
+   - Both reduce depth but at different layers
+   - Compare impact of removing layer3 vs layer4
+   - Assess trade-off between model size and accuracy
+
+2. **Deeper Models (v1 vs v2 vs v3):**
+   - All add conv blocks but at different positions
+   - Controlled comparison: which layer benefits most from additional conv?
+   - Isolates backbone modification impact (all use single FC head like baseline)
+
+3. **FC Enhancement (FC_v1):**
+   - Tests if deeper classifier helps without backbone changes
+   - NOT true CNN customization but useful reference point
+
+4. **Baseline vs All Variants:**
+   - Baseline serves as control group
+   - All improvements measured against this reference
 
 ---
 
@@ -508,21 +631,25 @@ evaluator.generate_experiment_summary(
 ```
 CNN_A2/
 ├── experiments/                          [Flow Control]
-│   ├── classification_ResNet50_baseline.py   (Baseline)
-│   ├── classification_ResNet50_v1.py         (Customized V1)
-│   ├── classification_ResNet50_v2.py         (Customized V2)
-│   └── classification_ResNet50_v3.py         (Customized V3)
+│   ├── classification_ResNet50_baseline.py           (Baseline)
+│   ├── classification_ResNet50_baseline_gridsearch.py (GridSearch)
+│   ├── classification_ResNet50_FC_v1.py              (FC Enhancement v1)
+│   ├── classification_ResNet50_reduced_v1.py         (Reduced Depth v1: -layer3)
+│   ├── classification_ResNet50_reduced_v2.py         (Reduced Depth v2: -layer4)
+│   ├── classification_ResNet50_deeper_v1.py          (Deeper Backbone v1: +conv layer1)
+│   ├── classification_ResNet50_deeper_v2.py          (Deeper Backbone v2: +conv layer2)
+│   └── classification_ResNet50_deeper_v3.py          (Deeper Backbone v3: +conv layer3)
 │
 ├── src/
 │   ├── models/                         [Model Definitions]
 │   │   ├── __init__.py
-│   │   └── ResNet50ClassifierModel.py      (ResNet50 + 4 configs + backbone mod)
+│   │   └── ResNet50ClassifierModel.py      (ResNet50 + 9 configs + backbone mod)
 │   │
 │   ├── training/                       [Training Framework]
 │   │   ├── __init__.py
 │   │   └── ResNet50_trainer.py       (TrainingConfig + Trainer + CSV logging)
 │   │
-│   ├── data_processing/                [Unified Data Loading] ← NEW
+│   ├── data_processing/                [Unified Data Loading]
 │   │   ├── __init__.py
 │   │   ├── classification_split.py         (Dataset splitting)
 │   │   └── ClassificationDataLoader.py     (Unified loader with 2 aug strategies)
@@ -540,22 +667,31 @@ CNN_A2/
     ├── classification_baseline_TIMESTAMP/
     │   ├── training/
     │   │   ├── best_model.pth
-    │   │   └── training_history.csv          ← NEW: Detailed epoch-by-epoch metrics
+    │   │   └── training_history.csv          ← Detailed epoch-by-epoch metrics
     │   ├── evaluation/
     │   │   ├── evaluation_metrics.json
     │   │   ├── classification_report.txt
-    │   │   └── confusion_matrix.png          ← ENHANCED: High-res heatmap
-    │   ├── visualization/                     ← NEW DIRECTORY
-    │   │   └── training_curves.png           ← NEW: Loss + accuracy plots
-    │   └── experiment_summary.md             ← ENHANCED: Comprehensive summary
+    │   │   └── confusion_matrix.png          ← High-res heatmap
+    │   ├── visualization/                     
+    │   │   └── training_curves.png           ← Loss + accuracy plots
+    │   └── experiment_summary.md             ← Comprehensive summary
     │
-    ├── classification_customized_v1_TIMESTAMP/
+    ├── classification_FC_v1_TIMESTAMP/
     │   └── ... (same structure)
     │
-    ├── classification_customized_v2_TIMESTAMP/
+    ├── classification_reduced_v1_TIMESTAMP/
     │   └── ... (same structure)
     │
-    └── classification_customized_v3_TIMESTAMP/
+    ├── classification_reduced_v2_TIMESTAMP/
+    │   └── ... (same structure)
+    │
+    ├── classification_deeper_v1_TIMESTAMP/
+    │   └── ... (same structure)
+    │
+    ├── classification_deeper_v2_TIMESTAMP/
+    │   └── ... (same structure)
+    │
+    └── classification_deeper_v3_TIMESTAMP/
         └── ... (same structure)
 ```
 
@@ -566,23 +702,54 @@ CNN_A2/
 ### Quick Start
 
 ```bash
-# Run all 4 experiments
+# Run baseline experiment
 python experiments/classification_ResNet50_baseline.py
-python experiments/classification_ResNet50_v1.py
-python experiments/classification_ResNet50_v2.py
-python experiments/classification_ResNet50_v3.py
+
+# Run hyperparameter grid search (optional, time-consuming)
+python experiments/classification_ResNet50_baseline_gridsearch.py
+
+# Run FC enhancement experiment
+python experiments/classification_ResNet50_FC_v1.py
+
+# Run reduced depth experiments
+python experiments/classification_ResNet50_reduced_v1.py
+python experiments/classification_ResNet50_reduced_v2.py
+
+# Run deeper backbone experiments
+python experiments/classification_ResNet50_deeper_v1.py
+python experiments/classification_ResNet50_deeper_v2.py
+python experiments/classification_ResNet50_deeper_v3.py
 ```
+
+### Command Line Options
+
+All experiments support the following options:
+
+```bash
+# Use pretrained weights (default: True from config)
+python experiments/classification_ResNet50_[experiment].py --pretrained False
+
+# Specify data augmentation strategy (default: 'none')
+python experiments/classification_ResNet50_[experiment].py --dataAugmentation enhanced
+
+# Combine options
+python experiments/classification_ResNet50_baseline.py --pretrained True --dataAugmentation standard
+```
+
+**Options:**
+- `--pretrained`: `True` (use ImageNet weights), `False` (train from scratch), or omit (use config default)
+- `--dataAugmentation`: `none` (basic preprocessing), `standard` (rotation 15° + color jitter), `enhanced` (rotation 20° + stronger jitter + affine)
 
 ### Expected Output
 
 Each experiment creates a timestamped directory in `outputs/` containing:
 - **Trained model** (`training/best_model.pth`)
-- **Training history CSV** (`training/training_history.csv`) - NEW!
+- **Training history CSV** (`training/training_history.csv`) - Epoch-by-epoch metrics
 - **Evaluation metrics** (`evaluation/evaluation_metrics.json`)
 - **Classification report** (`evaluation/classification_report.txt`)
-- **Confusion matrix** (`evaluation/confusion_matrix.png`) - ENHANCED!
-- **Training curves** (`visualization/training_curves.png`) - NEW!
-- **Experiment summary** (`experiment_summary.md`) - ENHANCED!
+- **Confusion matrix** (`evaluation/confusion_matrix.png`) - High-resolution heatmap
+- **Training curves** (`visualization/training_curves.png`) - Loss + accuracy plots
+- **Experiment summary** (`experiment_summary.md`) - Comprehensive markdown report
 
 ### Post-Training Analysis
 
@@ -604,7 +771,8 @@ plt.title('Training History')
 plt.show()
 
 # Compare experiments
-experiments = ['baseline', 'customized_v1', 'customized_v2', 'customized_v3']
+experiments = ['baseline', 'FC_v1', 'reduced_v1', 'reduced_v2', 
+               'deeper_v1', 'deeper_v2', 'deeper_v3']
 for exp in experiments:
     # Find latest run and load CSV
     # Plot comparison curves
@@ -622,8 +790,8 @@ for exp in experiments:
    - Evaluation calculates metrics and generates reports
 
 2. **Centralized Configuration:**
-   - All model configs in one place (4 configurations)
-   - All training configs in one place (4 TrainingConfig objects)
+   - All model configs in one place (9 configurations)
+   - All training configs in one place (9 TrainingConfig objects)
    - Easy to compare and modify
 
 3. **No Code Duplication (DRY Principle):**
@@ -633,7 +801,7 @@ for exp in experiments:
 
 4. **Teacher Compliance:**
    - ✅ NO layer freezing (all layers trainable)
-   - ✅ True CNN customization (backbone modification in V2/V3)
+   - ✅ True CNN customization (backbone modification in reduced/deeper variants)
    - ✅ Consistent dataset splits (unified loader)
    - ✅ Single-phase training (simplified pipeline)
    - ✅ Methodology focus documented in summaries
@@ -649,6 +817,7 @@ for exp in experiments:
    - Consistent evaluation metrics
    - Side-by-side result comparison enabled
    - Training curves for visual comparison
+   - Controlled experiments: Deeper_v1/v2/v3 isolate layer position impact
 
 ---
 
@@ -661,15 +830,16 @@ for exp in experiments:
    - Converted from two-phase to single-phase training
    - All layers trainable from epoch 1
 
-2. **Added True CNN Customization:**
+2. **Expanded True CNN Customization:**
    - Added backbone modification capability to ResNet50Classifier
-   - V2: Adds convolutional blocks after layer2
-   - V3: Removes layer3 with proper channel adjustment
-   - Deleted old CUSTOMIZED_CONFIG (only modified FC, not compliant)
+   - **Reduced Models:** Remove layer3 (reduced_v1) or layer4 (reduced_v2)
+   - **Deeper Models:** Add conv blocks after layer1/2/3 (deeper_v1/v2/v3)
+   - Renamed experiments for clarity: v1→FC_v1, v3→reduced_v1, etc.
+   - Deleted old v2 experiment (combined backbone+FC enhancement)
 
 3. **Centralized Training Configuration:**
    - Created TrainingConfig dataclass
-   - Defined 4 independent training configurations
+   - Defined 9 independent training configurations
    - Simplified Trainer API (removed scattered parameters)
 
 4. **Unified Data Loading:**
@@ -688,20 +858,45 @@ for exp in experiments:
    - Enables detailed post-training analysis
    - Easy to import into Pandas/Excel
 
+7. **Improved Experiment Naming:**
+   - Clear categorization: Baseline, FC Enhancement, Reduced Depth, Deeper Backbone
+   - Systematic naming enables easy comparison within categories
+   - Better reflects experimental purpose and methodology
+
 ---
 
 ## Next Steps
 
-1. ✅ Run all 4 experiments
+1. ✅ Run all experiments (baseline, gridsearch, FC_v1, reduced_v1/v2, deeper_v1/v2/v3)
 2. ✅ Compare results in `outputs/` directories
-3. ✅ Analyze `experiment_summary.md` files
-4. ✅ Review training curves for each experiment
-5. ✅ Examine overfitting analysis findings
-6. ✅ Include comprehensive comparison in assignment report
-7. ✅ Discuss methodology compliance and design decisions
+3. ✅ Analyze `experiment_summary.md` files for each variant
+4. ✅ Review training curves for overfitting patterns
+5. ✅ Examine confusion matrices for class-specific performance
+6. ✅ Generate comprehensive comparison across:
+   - Reduced depth models (which layer removal is less harmful?)
+   - Deeper backbone models (which layer addition helps most?)
+   - FC enhancement vs baseline (does deeper classifier help?)
+7. ✅ Include comprehensive comparison in assignment report
+8. ✅ Discuss methodology compliance and design decisions
+
+### Key Analysis Questions:
+
+**Reduced Models:**
+- Does removing layer3 or layer4 cause more accuracy drop?
+- Is the parameter reduction worth the performance trade-off?
+- Which classes suffer most from reduced depth?
+
+**Deeper Models:**
+- Which layer position benefits most from additional conv blocks?
+- Does adding depth at early/mid/late stages affect different features?
+- Is there diminishing returns as we add more layers?
+
+**FC Enhancement:**
+- Does multi-layer FC head improve performance without backbone changes?
+- Is the increased complexity justified by accuracy gains?
 
 ---
 
 **Author:** Kuanlong Li (Student ID: 25509225)  
 **Course:** 42028 Deep Learning and Convolutional Neural Networks  
-**Last Major Update:** 2026-05-01 - Complete architecture refactoring with centralized configuration and unified data loading
+**Last Major Update:** 2026-05-04 - Renamed experiments for clarity, expanded to 9 variants with systematic categorization (Baseline, FC Enhancement, Reduced Depth, Deeper Backbone)

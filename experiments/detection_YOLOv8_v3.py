@@ -2,17 +2,17 @@
 Experiment V3: YOLOv8 with Shallower Backbone (Reduced Convolutional Layers)
 
 This experiment removes convolutional layers from the YOLOv8 backbone:
-- Reduces C2f module repetitions in layer4 (6→3) and layer5 (3→2)
-- Removes 8 convolutional layers total
+- Reduces C2f module repeats in layer4 from 6 to 3
+- Removes 3 bottlenecks (6 convolutional layers total)
 - Tests if a lighter model can maintain performance with faster inference
 
 Customization Details:
-- Location: Backbone layer4 and layer5
+- Location: Backbone layer4 (P4/16 level)
 - Removed layers:
   * Reduced layer4 C2f from 6 to 3 repeats (removed 3 bottlenecks = 6 conv layers)
-  * Reduced layer5 C2f from 3 to 2 repeats (removed 1 bottleneck = 2 conv layers)
-- Total removed: 8 convolutional layers
-- Expected parameter decrease: ~12-15%
+- Total removed: 6 convolutional layers
+- Expected parameter decrease: ~3M (~22.9M total)
+- All layer indices remain unchanged (stable architecture)
 """
 
 import sys
@@ -98,9 +98,11 @@ def main():
     print(f'Input size: {MODEL_V3_CONFIG["input_size"]}')
     print(f'Pretrained: {use_pretrained}')
     print(f'Custom YAML: {MODEL_V3_CONFIG["model_yaml"]}')
-    print(f'Customization: Removed 8 convolutional layers from backbone')
-    print(f'  - Reduced layer4 C2f: 6 → 3 repeats (removed 6 conv layers)')
-    print(f'  - Reduced layer5 C2f: 3 → 2 repeats (removed 2 conv layers)')
+    print(f'Customization: Reduced backbone depth by removing convolutional layers')
+    print(f'  - Location: Layer4 (P4/16 level)')
+    print(f'  - Change: C2f repeats 6 → 3 (removed 3 bottlenecks)')
+    print(f'  - Removed: 6 convolutional layers total')
+    print(f'  - Benefit: Faster training, reduced overfitting risk')
     
     # Step 3: Train using centralized configuration
     print("\n[3/5] Training model...")
@@ -137,14 +139,17 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Reduced total convolutional layers by ~30%:\n"
-        "- Set depth_multiple to 0.7 in YAML configuration\n"
-        "- Automatically reduced C2f module repeats across Backbone and Neck"
+        "Reduced backbone depth by modifying layer4 C2f module:\n"
+        "- Changed C2f repeats from 6 to 3 (P4/16 level)\n"
+        "- Removed 3 bottleneck blocks (6 convolutional layers)\n"
+        "- Maintains stable layer indices (no structural changes)\n"
+        "- Parameter reduction: ~3M\n"
+        "- Benefits: Faster inference, lower memory, reduced overfitting"
     )
     
     evaluator.generate_experiment_summary(
         output_dir=str(output_dir),
-        experiment_name="V3: YOLOv8 Reduced Depth",
+        experiment_name="V3: YOLOv8 Shallower Backbone",
         model_config=model_config,
         training_config=TRAIN_V3_CONFIG,
         metrics=metrics,

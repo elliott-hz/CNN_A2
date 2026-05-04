@@ -1,47 +1,52 @@
-# YOLOv8m Custom - Deeper Backbone (添加额外卷积层)
-# 在layer3和layer4之间插入额外的C2f模块
+# YOLOv8m Custom - Deeper Backbone (V2)
+# Adds extra convolutional layers to the backbone for enhanced feature extraction.
 
-nc: 5  # number of classes
-depth_multiple: 1.0  # model depth multiple
-width_multiple: 1.0  # layer channel multiple
+nc: 5
+depth_multiple: 1.0
+width_multiple: 1.0
 
-# Backbone结构 (修改部分)
 backbone:
-  # [from, repeats, module, args]
-  - [-1, 1, Conv, [64, 3, 2]]              # 0-P1/2
-  - [-1, 1, Conv, [128, 3, 2]]             # 1-P2/4
+  # P1/2
+  - [-1, 1, Conv, [64, 3, 2]]              # 0
+  # P2/4
+  - [-1, 1, Conv, [128, 3, 2]]             # 1
   - [-1, 3, C2f, [128, True]]              # 2
-  - [-1, 1, Conv, [256, 3, 2]]             # 3-P3/8
+  # P3/8
+  - [-1, 1, Conv, [256, 3, 2]]             # 3
   - [-1, 6, C2f, [256, True]]              # 4
-  - [-1, 1, Conv, [512, 3, 2]]             # 5-P4/16
+  # P4/16
+  - [-1, 1, Conv, [512, 3, 2]]             # 5
   - [-1, 6, C2f, [512, True]]              # 6
-  - [-1, 1, Conv, [1024, 3, 2]]            # 7-P5/32
+  # P5/32
+  - [-1, 1, Conv, [1024, 3, 2]]            # 7
   - [-1, 3, C2f, [1024, True]]             # 8
   - [-1, 1, SPPF, [1024, 5]]               # 9
   
-  # === 新增的卷积层 ===
-  - [-1, 1, Conv, [512, 1, 1]]             # 10-额外降维卷积
-  - [-1, 2, C2f, [512, True]]              # 11-新增C2f模块(包含多个卷积层)
-  - [-1, 1, Conv, [1024, 3, 1]]            # 12-额外恢复维度卷积
+  # === Custom Added Layers (Deeper Backbone) ===
+  - [-1, 1, Conv, [512, 1, 1]]             # 10 (Reduce channels)
+  - [-1, 2, C2f, [512, True]]              # 11 (Extra feature processing)
+  - [-1, 1, Conv, [1024, 3, 1]]            # 12 (Restore channels)
 
-# Neck (保持不变)
 neck:
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 6], 1, Concat, [1]]              # cat backbone P4
-  - [-1, 3, C2f, [512]]                    # 15
+  # Upsample path 1 (P5 -> P4)
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 13
+  - [[-1, 6], 1, Concat, [1]]                    # 14 (Cat with P4 from backbone index 6)
+  - [-1, 3, C2f, [512]]                          # 15
   
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]
-  - [[-1, 4], 1, Concat, [1]]              # cat backbone P3
-  - [-1, 3, C2f, [256]]                    # 18 (P3/8-small)
+  # Upsample path 2 (P4 -> P3)
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 16
+  - [[-1, 4], 1, Concat, [1]]                    # 17 (Cat with P3 from backbone index 4)
+  - [-1, 3, C2f, [256]]                          # 18 (P3 Output for Detect)
   
-  - [-1, 1, Conv, [256, 3, 2]]
-  - [[-1, 15], 1, Concat, [1]]             # cat head P4
-  - [-1, 3, C2f, [512]]                    # 21 (P4/16-medium)
+  # Downsample path 1 (P3 -> P4)
+  - [-1, 1, Conv, [256, 3, 2]]                   # 19
+  - [[-1, 15], 1, Concat, [1]]                   # 20 (Cat with previous P4 level)
+  - [-1, 3, C2f, [512]]                          # 21 (P4 Output for Detect)
   
-  - [-1, 1, Conv, [512, 3, 2]]
-  - [[-1, 12], 1, Concat, [1]]             # cat head P5 (连接到新增层的输出)
-  - [-1, 3, C2f, [1024]]                   # 24 (P5/32-large)
+  # Downsample path 2 (P4 -> P5)
+  - [-1, 1, Conv, [512, 3, 2]]                   # 22
+  - [[-1, 12], 1, Concat, [1]]                   # 23 (Cat with final backbone layer)
+  - [-1, 3, C2f, [1024]]                         # 24 (P5 Output for Detect)
 
-# Head
 head:
-  - [[18, 21, 24], 1, Detect, [nc]]        # Detect(P3, P4, P5)
+  - [[18, 21, 24], 1, Detect, [nc]]              # Detect(P3, P4, P5)

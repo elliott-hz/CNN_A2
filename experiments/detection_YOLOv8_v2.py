@@ -2,18 +2,18 @@
 Experiment V2: YOLOv8 with Deeper Backbone (Added Convolutional Layers)
 
 This experiment adds extra convolutional layers to the YOLOv8 backbone:
-- Inserts additional C2f module between layer3 and layer4
-- Adds 6 new convolutional layers total
-- Tests if deeper backbone improves feature extraction
+- Inserts 2 Conv layers after layer2 (C2f module)
+- Adds 2 new convolutional layers total
+- Tests if deeper backbone improves feature extraction in shallow layers
 
 Customization Details:
-- Location: After backbone layer3 (before layer4)
+- Location: After backbone layer2 (C2f with 128 channels)
 - Added layers: 
-  * 1x1 Conv (1024→512 channels) - dimensionality reduction
-  * C2f module with 2 bottlenecks (4 conv layers) - feature enhancement
-  * 3x3 Conv (512→1024 channels) - dimensionality restoration
-- Total added: 6 convolutional layers
-- Expected parameter increase: ~15-18%
+  * Conv(128, 3x3, stride=1, padding=1) - maintain resolution
+  * Conv(128, 3x3, stride=1, padding=1) - deepen feature representation
+- Total added: 2 convolutional layers
+- Expected parameter increase: ~0.5M (~26.4M total)
+- All subsequent layer indices shifted by +2
 """
 
 import sys
@@ -98,10 +98,11 @@ def main():
     print(f'Input size: {MODEL_V2_CONFIG["input_size"]}')
     print(f'Pretrained: {use_pretrained}')
     print(f'Custom YAML: {MODEL_V2_CONFIG["model_yaml"]}')
-    print(f'Customization: Added 6 convolutional layers in backbone')
-    print(f'  - 1x1 Conv (dimensionality reduction)')
-    print(f'  - C2f module with 2 bottlenecks (4 conv layers)')
-    print(f'  - 3x3 Conv (dimensionality restoration)')
+    print(f'Customization: Added 2 convolutional layers in backbone')
+    print(f'  - Location: After layer2 (C2f module)')
+    print(f'  - Layer 3: Conv(128, 3x3, stride=1, padding=1)')
+    print(f'  - Layer 4: Conv(128, 3x3, stride=1, padding=1)')
+    print(f'  - Purpose: Deepen shallow-layer feature extraction')
     
     # Step 3: Train using centralized configuration
     print("\n[3/5] Training model...")
@@ -138,14 +139,16 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = (
-        "Added 12+ convolutional layers in the Neck:\n"
-        "- Inserted extra C2f modules after each feature fusion point\n"
-        "- Enhanced multi-scale feature extraction capability"
+        "Added 2 convolutional layers in Backbone after layer2:\n"
+        "- Inserted Conv(128, 3x3, s=1, p=1) x2 after C2f module\n"
+        "- Maintains spatial resolution while deepening feature extraction\n"
+        "- Increases model depth for better shallow feature learning\n"
+        "- Parameter increase: ~0.5M"
     )
     
     evaluator.generate_experiment_summary(
         output_dir=str(output_dir),
-        experiment_name="V2: YOLOv8 Enhanced Neck",
+        experiment_name="V2: YOLOv8 Deeper Backbone",
         model_config=model_config,
         training_config=TRAIN_V2_CONFIG,
         metrics=metrics,

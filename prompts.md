@@ -11,3 +11,18 @@
 
 
 4.6: now, the latest training works have been done for all 8 experiments from baseline to v7 (all results(md and csv files) shown in the folder of CNN_A2/outputs/train_history-run-5), please read all csv files and markdonw files in this folder, and then analysis comprehensively and get a summary results of all expriments (one experiment by one expriment) named: experiments_analysis.md in this folder,, make everything simple.
+
+
+
+
+
+
+
+
+
+
+please read CNN_A2/README.md.
+
+read all the markdown files in the folder of CNN_A2/requirements/.
+
+now please read and understand the whole process of all 3 YOLOv8 experiments in the package of CNN_A2/experiments/ (start with 'detection_YOLOv8' python files)

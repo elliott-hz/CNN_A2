@@ -18,7 +18,7 @@ FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 2,
+    'epochs': 1,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,         # Early stopping patience

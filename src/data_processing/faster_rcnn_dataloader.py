@@ -167,7 +167,14 @@ class FasterRCNNDataset(Dataset):
         for annot in img_annots:
             # COCO format: [x, y, width, height]
             x, y, w, h = annot['bbox']
-            boxes.append([x, y, x + w, y + h])
+            x2, y2 = x + w, y + h
+            
+            # **VALIDATION: Skip invalid boxes (width or height <= 0)**
+            # This handles dataset issues where boxes have zero/negative dimensions
+            if w <= 0 or h <= 0:
+                continue  # Skip this annotation
+            
+            boxes.append([x, y, x2, y2])
             
             # Map category_id to label index (1-indexed, 0 is background)
             category_id = annot['category_id']
@@ -178,11 +185,11 @@ class FasterRCNNDataset(Dataset):
             iscrowd.append(annot.get('iscrowd', 0))
         
         return {
-            'boxes': torch.as_tensor(boxes, dtype=torch.float32),
-            'labels': torch.as_tensor(labels, dtype=torch.int64),
+            'boxes': torch.as_tensor(boxes, dtype=torch.float32) if boxes else torch.zeros((0, 4), dtype=torch.float32),
+            'labels': torch.as_tensor(labels, dtype=torch.int64) if labels else torch.zeros((0,), dtype=torch.int64),
             'image_id': torch.tensor([img_info['id']]),
-            'area': torch.as_tensor(areas, dtype=torch.float32),
-            'iscrowd': torch.as_tensor(iscrowd, dtype=torch.uint8)
+            'area': torch.as_tensor(areas, dtype=torch.float32) if areas else torch.zeros((0,), dtype=torch.float32),
+            'iscrowd': torch.as_tensor(iscrowd, dtype=torch.uint8) if iscrowd else torch.zeros((0,), dtype=torch.uint8)
         }
     
     def _parse_pascal_annotation(self, annot_file: Path) -> Dict:
@@ -206,6 +213,10 @@ class FasterRCNNDataset(Dataset):
             xmax = float(bbox.find('xmax').text)
             ymax = float(bbox.find('ymax').text)
             
+            # **VALIDATION: Skip invalid boxes (width or height <= 0)**
+            if (xmax - xmin) <= 0 or (ymax - ymin) <= 0:
+                continue  # Skip this annotation
+            
             boxes.append([xmin, ymin, xmax, ymax])
             
             # Get class name and convert to index
@@ -217,12 +228,16 @@ class FasterRCNNDataset(Dataset):
             labels.append(label)
         
         # Calculate areas
-        boxes_tensor = torch.as_tensor(boxes, dtype=torch.float32)
-        areas = (boxes_tensor[:, 2] - boxes_tensor[:, 0]) * (boxes_tensor[:, 3] - boxes_tensor[:, 1])
+        if boxes:
+            boxes_tensor = torch.as_tensor(boxes, dtype=torch.float32)
+            areas = (boxes_tensor[:, 2] - boxes_tensor[:, 0]) * (boxes_tensor[:, 3] - boxes_tensor[:, 1])
+        else:
+            boxes_tensor = torch.zeros((0, 4), dtype=torch.float32)
+            areas = torch.zeros((0,), dtype=torch.float32)
         
         return {
             'boxes': boxes_tensor,
-            'labels': torch.as_tensor(labels, dtype=torch.int64),
+            'labels': torch.as_tensor(labels, dtype=torch.int64) if labels else torch.zeros((0,), dtype=torch.int64),
             'image_id': torch.tensor([0]),  # Placeholder
             'area': areas,
             'iscrowd': torch.zeros(len(boxes), dtype=torch.uint8)
@@ -247,11 +262,19 @@ class FasterRCNNDataset(Dataset):
                 w = float(parts[3])
                 h = float(parts[4])
                 
+                # **VALIDATION: Skip invalid boxes (width or height <= 0 after conversion)**
+                if w <= 0 or h <= 0:
+                    continue  # Skip this annotation
+                
                 # Convert YOLO format (center_x, center_y, w, h) normalized to (x1, y1, x2, y2) absolute
                 x1 = (x_center - w / 2) * width
                 y1 = (y_center - h / 2) * height
                 x2 = (x_center + w / 2) * width
                 y2 = (y_center + h / 2) * height
+                
+                # **ADDITIONAL VALIDATION: Ensure converted box is valid**
+                if (x2 - x1) <= 0 or (y2 - y1) <= 0:
+                    continue  # Skip this annotation
                 
                 boxes.append([x1, y1, x2, y2])
                 labels.append(class_id + 1)  # +1 because 0 is background
@@ -303,6 +326,22 @@ class FasterRCNNDataset(Dataset):
             target = self._parse_yolo_annotation(annot_path, (img_height, img_width))
         else:
             raise ValueError(f"Unsupported annotation format: {self.annotation_format}")
+        
+        # **VALIDATION: Ensure target is valid**
+        # Check that boxes have valid dimensions (width > 0 and height > 0)
+        if len(target['boxes']) > 0:
+            boxes = target['boxes']
+            widths = boxes[:, 2] - boxes[:, 0]
+            heights = boxes[:, 3] - boxes[:, 1]
+            
+            # Additional check: ensure no negative or zero dimensions
+            if (widths <= 0).any() or (heights <= 0).any():
+                # Log warning and return empty target
+                print(f"Warning: Image {img_path.name} has invalid boxes after parsing, skipping annotations")
+                target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
+                target['labels'] = torch.zeros((0,), dtype=torch.int64)
+                target['area'] = torch.zeros((0,), dtype=torch.float32)
+                target['iscrowd'] = torch.zeros((0,), dtype=torch.uint8)
         
         # Apply transforms if provided
         if self.transforms is not None:

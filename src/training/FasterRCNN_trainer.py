@@ -129,45 +129,19 @@ class FasterRCNNTrainer:
             print(f"\nEpoch {epoch+1}/{self.epochs} - Training...")
             
             for batch_idx, (images, targets) in enumerate(train_loader):
-                # **DEBUG: Print first batch info to understand structure**
-                if epoch == 0 and batch_idx == 0:
-                    print(f"\n🔍 DEBUG: First batch structure:")
-                    print(f"   Type of images: {type(images)}")
-                    print(f"   Number of images: {len(images)}")
-                    print(f"   Image shapes: {[img.shape for img in images]}")
-                    print(f"   Type of targets: {type(targets)}")
-                    print(f"   Number of targets: {len(targets)}")
-                    if len(targets) > 0:
-                        print(f"   Type of first target: {type(targets[0])}")
-                        print(f"   Keys in first target: {targets[0].keys()}")
-                        print(f"   Boxes shape: {targets[0]['boxes'].shape}")
-                        print(f"   Labels shape: {targets[0]['labels'].shape}")
-                
                 images = [img.to(device) for img in images]
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 
-                # **CRITICAL: Skip batches where all images have no valid bboxes**
-                # This can happen after bbox filtering. Empty targets cause loss_dict issues.
+                # Skip batches where all images have no valid bboxes
                 if all(len(t['boxes']) == 0 for t in targets):
                     skipped_batches += 1
                     continue
                 
+                # Forward pass - returns loss dict in training mode
                 loss_dict = model(images, targets)
+                losses = sum(loss for loss in loss_dict.values())
                 
-                # **Robust Error Handling: Check loss_dict type and handle edge cases**
-                if isinstance(loss_dict, dict):
-                    # Normal case: dict of losses
-                    losses = sum(loss for loss in loss_dict.values())
-                elif isinstance(loss_dict, (list, tuple)):
-                    # Edge case: returned as list/tuple (handle gracefully by skipping)
-                    print(f"\n⚠️ Warning: Batch {batch_idx} returned {type(loss_dict)} instead of dict")
-                    print(f"   Content: {loss_dict}")
-                    print(f"   Targets boxes: {[len(t['boxes']) for t in targets]}")
-                    skipped_batches += 1
-                    continue
-                else:
-                    raise TypeError(f"Model returned unexpected type {type(loss_dict)}. Expected dict.")
-                
+                # Backward pass
                 optimizer.zero_grad()
                 losses.backward()
                 optimizer.step()
@@ -175,7 +149,7 @@ class FasterRCNNTrainer:
                 epoch_loss += losses.item()
                 batch_count += 1
                 
-                # **Print training progress every 10 batches**
+                # Print training progress every 10 batches
                 if (batch_idx + 1) % 10 == 0:
                     current_avg_loss = epoch_loss / batch_count
                     print(f"  [Epoch {epoch+1}] Batch {batch_idx+1}/{len(train_loader)} | "
@@ -193,9 +167,6 @@ class FasterRCNNTrainer:
                 print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
             # Validation epoch
-            # **CRITICAL: Switch to train mode to compute loss (Faster R-CNN design)**
-            # In eval mode, model(images, targets) returns predictions (list), not losses (dict)
-            # We need train mode + no_grad to get validation loss
             model.model.train()
             val_loss = 0.0
             val_batch_count = 0
@@ -205,30 +176,20 @@ class FasterRCNNTrainer:
                     images = [img.to(device) for img in images]
                     targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                     
-                    # **CRITICAL: Skip batches where all images have no valid bboxes**
+                    # Skip empty target batches
                     if all(len(t['boxes']) == 0 for t in targets):
                         continue
                     
-                    # Forward pass - train mode returns loss dict even with no_grad
                     loss_dict = model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
+                    val_loss += losses.item()
+                    val_batch_count += 1
                     
-                    # **Handle both dict and list/tuple cases**
-                    if isinstance(loss_dict, dict):
-                        losses = sum(loss for loss in loss_dict.values())
-                        val_loss += losses.item()
-                        val_batch_count += 1
-                        
-                        # **Print validation progress every 20 batches**
-                        if (batch_idx + 1) % 20 == 0:
-                            current_avg_val_loss = val_loss / val_batch_count
-                            print(f"  [Val] Batch {batch_idx+1}/{len(val_loader)} | "
-                                  f"Avg Val Loss: {current_avg_val_loss:.4f}", end='\r')
-                    elif isinstance(loss_dict, (list, tuple)):
-                        # This should NOT happen now since we're in train mode
-                        print(f"  ⚠️ Warning: Validation batch {batch_idx} returned {type(loss_dict)}, skipping")
-                        continue
-                    else:
-                        raise TypeError(f"Model returned unexpected type {type(loss_dict)} in validation.")
+                    # Print validation progress every 20 batches
+                    if (batch_idx + 1) % 20 == 0:
+                        current_avg_val_loss = val_loss / val_batch_count
+                        print(f"  [Val] Batch {batch_idx+1}/{len(val_loader)} | "
+                              f"Avg Val Loss: {current_avg_val_loss:.4f}", end='\r')
             
             # Print newline after validation completes
             print()

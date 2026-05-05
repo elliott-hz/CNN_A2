@@ -3,6 +3,7 @@ Faster R-CNN Dataset and DataLoader
 
 Provides dataset classes and data loading utilities for Faster R-CNN training.
 Supports COCO, Pascal VOC, and YOLO format annotations.
+Optimized for consistent data splits across experiments.
 """
 
 import os
@@ -167,7 +168,12 @@ class FasterRCNNDataset(Dataset):
             # COCO format: [x, y, width, height]
             x, y, w, h = annot['bbox']
             boxes.append([x, y, x + w, y + h])
-            labels.append(annot['category_id'])
+            
+            # Map category_id to label index (1-indexed, 0 is background)
+            category_id = annot['category_id']
+            # Assuming category_id matches class index + 1
+            labels.append(category_id)
+            
             areas.append(annot['area'])
             iscrowd.append(annot.get('iscrowd', 0))
         

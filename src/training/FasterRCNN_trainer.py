@@ -203,7 +203,7 @@ class FasterRCNNTrainer:
             
             # Fast mAP evaluation on validation set (< 5 seconds)
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
-            print(f"Epoch {epoch+1}/{self.epochs} [Val]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
+            print(f"Epoch {epoch+1}/{self.epochs} [Eval]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
             # Log to CSV with core metrics
             current_lr = scheduler.get_last_lr()[0]

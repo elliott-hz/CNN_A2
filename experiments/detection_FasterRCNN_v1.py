@@ -18,8 +18,8 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_V1_CONFIG
-from src.training.FasterRCNN_trainer import FasterRCNNTrainer
+from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_V1_CONFIG as MODEL_CONFIG
+from src.training.FasterRCNN_trainer import FasterRCNNTrainer, FASTERRCNN_V1_CONFIG as TRAIN_CONFIG
 from src.evaluation.detection_evaluator import DetectionEvaluator
 from src.data_processing.faster_rcnn_dataloader import create_faster_rcnn_dataloaders
 
@@ -36,10 +36,6 @@ def main():
     DATA_ROOT = f"data/{STUDENT_ID}/Object_Detection/coco"  # Using COCO format
     ANNOTATION_FORMAT = 'coco'  # Options: 'coco', 'pascal', 'yolo'
     CLASS_NAMES = ['Cell', 'Cell-Multi', 'No-Anomaly', 'Shadowing', 'Unclassified']
-    
-    EPOCHS = 50
-    BATCH_SIZE = 2  # Reduced for T4 GPU memory constraints (Faster R-CNN is memory-intensive)
-    LR = 0.001
     
     # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -67,7 +63,7 @@ def main():
     try:
         train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
             data_root=DATA_ROOT,
-            batch_size=BATCH_SIZE,
+            batch_size=TRAIN_CONFIG['batch_size'],
             num_workers=2,
             annotation_format=ANNOTATION_FORMAT,
             class_names=CLASS_NAMES
@@ -90,13 +86,13 @@ def main():
     # Update config with correct number of classes (including background)
     num_classes = len(CLASS_NAMES) + 1  # +1 for background
     model_config = {
-        **FASTERRCNN_V1_CONFIG,
+        **MODEL_CONFIG,
         'num_classes': num_classes
     }
     
     model = FasterRCNNDetector(**model_config)
     print(f'Number of classes: {num_classes} ({len(CLASS_NAMES)} + background)')
-    print(f'Image size: {FASTERRCNN_V1_CONFIG["min_size"]}x{FASTERRCNN_V1_CONFIG["max_size"]}')
+    print(f'Image size: {MODEL_CONFIG["min_size"]}x{MODEL_CONFIG["max_size"]}')
     print(f'Customization: None (Baseline)')
     
     # Count parameters
@@ -106,15 +102,13 @@ def main():
     
     # Step 3: Train
     print("\n[3/5] Training model...")
-    trainer = FasterRCNNTrainer(learning_rate=LR, weight_decay=1e-4)
+    trainer = FasterRCNNTrainer(TRAIN_CONFIG)
     
     history = trainer.train(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        epochs=EPOCHS,
-        output_dir=str(output_dir / 'training'),
-        patience=10
+        output_dir=str(output_dir / 'training')
     )
     
     print(f'Training completed! Best val loss: {history["best_loss"]:.4f}')
@@ -152,13 +146,7 @@ def main():
         output_dir=str(output_dir),
         experiment_name="V1: Faster R-CNN Baseline",
         model_config=model_config,
-        training_config={
-            'epochs': EPOCHS,
-            'batch_size': BATCH_SIZE,
-            'learning_rate': LR,
-            'weight_decay': 1e-4,
-            'patience': 10
-        },
+        training_config=TRAIN_CONFIG,
         metrics=metrics,
         customization_details=customization_desc
     )

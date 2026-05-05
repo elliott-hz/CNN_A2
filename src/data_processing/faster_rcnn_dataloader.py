@@ -365,8 +365,8 @@ class FasterRCNNDataset(Dataset):
 
 def create_faster_rcnn_dataloaders(
     data_root: str,
-    batch_size: int = 4,
-    num_workers: int = 4,
+    batch_size: int = 8,
+    num_workers: int = 8,
     annotation_format: str = 'coco',
     class_names: List[str] = None
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:

@@ -30,39 +30,42 @@ class DetectionEvaluator:
     
     def organize_training_artifacts(self, output_dir: str) -> bool:
         """
-        Organize Ultralytics training outputs into structured directories.
+        Organize training outputs into structured directories.
         
-        Copies training history CSV and visualization plots from Ultralytics'
-        default output structure to organized training/ and evaluation/ directories.
+        For YOLOv8 (Ultralytics): Copies CSV and plots from Ultralytics' default structure.
+        For Faster R-CNN: Artifacts are already in correct location, just verify.
         
         Args:
-            output_dir: Root output directory (e.g., outputs/detection_yolov8_v3/run_TIMESTAMP/)
+            output_dir: Root output directory
             
         Returns:
             True if successful, False otherwise
         """
         output_path = Path(output_dir)
+        training_dir = output_path / 'training'
         
-        # Based on the experiment script logic:
-        # - Trainer receives: output_dir / 'training' as output_dir parameter
-        # - Trainer sets: project=output_dir/training, name='train'
-        # - Ultralytics creates: output_dir/training/train/
-        # 
-        # So we need to look in: output_dir/training/train/
-        ultralytics_train_dir = output_path / 'training' / 'train'
+        # Check if this is a Faster R-CNN experiment (has best_model.pth directly in training/)
+        if (training_dir / 'best_model.pth').exists():
+            print(f'✓ Faster R-CNN training artifacts already organized at: {training_dir}')
+            return True
+        
+        # Otherwise, assume it's YOLOv8 (Ultralytics) format
+        ultralytics_train_dir = training_dir / 'train'
         
         if not ultralytics_train_dir.exists():
             print(f'⚠ Warning: Ultralytics training output not found at {ultralytics_train_dir}')
+            print(f'  This may indicate that YOLOv8 training did not complete successfully.')
+            print(f'  Please check if the model was trained with correct project/name parameters.')
             print(f'  Listing output_dir contents:')
             if output_path.exists():
                 for item in output_path.iterdir():
                     print(f'    - {item.name}')
                 # Also check training/ subdirectory
-                training_dir = output_path / 'training'
                 if training_dir.exists():
                     print(f'  Contents of training/:')
                     for item in training_dir.iterdir():
                         print(f'    - training/{item.name}')
+            
             # Fallback: Ultralytics may have written to runs/detect/<relative output path>
             try:
                 cwd = Path.cwd()

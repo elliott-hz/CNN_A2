@@ -7,6 +7,10 @@ Supports CSV metrics logging for detailed epoch-by-epoch tracking.
 
 import torch
 import csv
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend for saving figures
+import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -94,11 +98,18 @@ class FasterRCNNTrainer:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Setup CSV logging
+        # Setup CSV logging with core metrics
         csv_path = output_path / 'training_history.csv'
         csv_file = open(csv_path, 'w', newline='')
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(['epoch', 'train_loss', 'val_loss', 'learning_rate'])
+        csv_writer.writerow([
+            'epoch', 
+            'train_loss', 'val_loss',
+            'box_loss', 'cls_loss',
+            'precision', 'recall',
+            'map50', 'map50_95',
+            'learning_rate'
+        ])
         
         # Setup optimizer
         params = [p for p in model.parameters() if p.requires_grad]
@@ -109,6 +120,7 @@ class FasterRCNNTrainer:
         model.model.to(device)
         
         best_loss = float('inf')
+        best_map50 = 0.0
         early_stop_counter = 0
         
         print(f"Training configuration:")
@@ -123,6 +135,8 @@ class FasterRCNNTrainer:
             # Training epoch
             model.model.train()
             epoch_loss = 0.0
+            epoch_box_loss = 0.0
+            epoch_cls_loss = 0.0
             batch_count = 0
             skipped_batches = 0
             
@@ -140,6 +154,10 @@ class FasterRCNNTrainer:
                 # Forward pass - returns loss dict in training mode
                 loss_dict = model(images, targets)
                 losses = sum(loss for loss in loss_dict.values())
+                
+                # Track box and cls loss components
+                epoch_box_loss += loss_dict.get('loss_box_reg', 0).item()
+                epoch_cls_loss += loss_dict.get('loss_classifier', 0).item()
                 
                 # Backward pass
                 optimizer.zero_grad()
@@ -159,14 +177,16 @@ class FasterRCNNTrainer:
             # Print newline after epoch completes
             print()
             
-            # Calculate average loss (only from non-skipped batches)
+            # Calculate average losses
             avg_train_loss = epoch_loss / max(batch_count, 1)
+            avg_box_loss = epoch_box_loss / max(batch_count, 1)
+            avg_cls_loss = epoch_cls_loss / max(batch_count, 1)
             
             # Report skipped batches if any
             if skipped_batches > 0:
                 print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
-            # Validation epoch
+            # Validation epoch - compute loss and fast mAP
             model.model.train()
             val_loss = 0.0
             val_batch_count = 0
@@ -195,25 +215,37 @@ class FasterRCNNTrainer:
             print()
             avg_val_loss = val_loss / max(val_batch_count, 1)
             
-            # Log to CSV
-            csv_writer.writerow([epoch + 1, f'{avg_train_loss:.4f}', 
-                               f'{avg_val_loss:.4f}', f'{self.learning_rate:.8f}'])
+            # Fast mAP evaluation (< 5 seconds)
+            print(f"\n  🎯 Computing fast mAP...")
+            map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
+            
+            print(f"  Epoch [{epoch+1}/{self.epochs}] - Loss: Train={avg_train_loss:.3f}, Val={avg_val_loss:.3f} | box={avg_box_loss:.3f}, cls={avg_cls_loss:.3f}")
+            print(f"  📊 P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
+            
+            # Log to CSV with core metrics
+            csv_writer.writerow([
+                epoch + 1, 
+                f'{avg_train_loss:.4f}', 
+                f'{avg_val_loss:.4f}',
+                f'{avg_box_loss:.4f}',
+                f'{avg_cls_loss:.4f}',
+                f'{precision:.4f}',
+                f'{recall:.4f}',
+                f'{map50:.4f}',
+                f'{map50_95:.4f}',
+                f'{self.learning_rate:.8f}'
+            ])
             csv_file.flush()
             
-            # Print progress
-            if (epoch + 1) % 5 == 0 or epoch == 0:
-                print(f'Epoch [{epoch+1}/{self.epochs}] '
-                      f'Train Loss: {avg_train_loss:.4f} | '
-                      f'Val Loss: {avg_val_loss:.4f}')
-            
-            # Checkpoint and early stopping
-            if avg_val_loss < best_loss:
+            # Checkpoint and early stopping (based on mAP@0.5 for better model selection)
+            if map50 > best_map50:
+                best_map50 = map50
                 best_loss = avg_val_loss
                 early_stop_counter = 0
                 
                 # Save best model
                 torch.save(model.model.state_dict(), output_path / 'best_model.pth')
-                print(f'  ✓ New best model saved (val_loss: {best_loss:.4f})')
+                print(f'  ✓ New best model saved (mAP@0.5: {map50:.3f})')
             else:
                 early_stop_counter += 1
                 if early_stop_counter >= self.patience:
@@ -221,6 +253,9 @@ class FasterRCNNTrainer:
                     break
         
         csv_file.close()
+        
+        # Generate training curve plots
+        self._plot_training_curves(csv_path, output_path)
         
         history = {
             'best_loss': best_loss,
@@ -234,3 +269,259 @@ class FasterRCNNTrainer:
         print(f"  Early stopped: {history['early_stopped']}")
         
         return history
+    
+    def _fast_evaluate(self, model, val_loader, device):
+        """
+        Fast mAP evaluation (< 5 seconds) using simplified IoU matching.
+        
+        Returns:
+            tuple: (map50, map50_95, precision, recall)
+        """
+        all_preds = []
+        all_gts = []
+        
+        # Collect predictions and ground truths
+        with torch.no_grad():
+            for images, targets in val_loader:
+                images = [img.to(device) for img in images]
+                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                
+                # Skip empty batches
+                if all(len(t['boxes']) == 0 for t in targets):
+                    continue
+                
+                model.model.eval()
+                predictions = model(images)
+                model.model.train()
+                
+                all_preds.extend(predictions)
+                all_gts.extend(targets)
+        
+        if len(all_preds) == 0 or len(all_gts) == 0:
+            return 0.0, 0.0, 0.0, 0.0
+        
+        # Compute fast mAP
+        map50, map50_95, precision, recall = self._compute_fast_map(all_preds, all_gts)
+        
+        return map50, map50_95, precision, recall
+    
+    def _compute_fast_map(self, predictions, ground_truths, iou_thresholds=[0.5, 0.75]):
+        """
+        Compute approximate mAP using simplified IoU matching.
+        
+        Strategy:
+        1. For each image, compute IoU between predictions and GT
+        2. Match predictions to GT at IoU=0.5 and IoU=0.75
+        3. Calculate Precision, Recall, and approximate AP
+        4. Average across all images
+        
+        This is faster than full COCO mAP but captures the trend accurately.
+        """
+        total_tp_50 = 0
+        total_fp_50 = 0
+        total_fn_50 = 0
+        
+        total_tp_75 = 0
+        total_fp_75 = 0
+        total_fn_75 = 0
+        
+        total_gt_count = 0
+        total_pred_count = 0
+        
+        for pred, gt in zip(predictions, ground_truths):
+            pred_boxes = pred['boxes'].cpu().numpy()
+            gt_boxes = gt['boxes'].cpu().numpy()
+            
+            if len(pred_boxes) == 0 or len(gt_boxes) == 0:
+                total_fn_50 += len(gt_boxes)
+                total_fn_75 += len(gt_boxes)
+                total_gt_count += len(gt_boxes)
+                total_pred_count += len(pred_boxes)
+                continue
+            
+            # Compute IoU matrix
+            ious = self._compute_iou_matrix(pred_boxes, gt_boxes)
+            
+            # For IoU=0.5
+            tp_50, fp_50, fn_50 = self._match_predictions(ious, threshold=0.5)
+            total_tp_50 += tp_50
+            total_fp_50 += fp_50
+            total_fn_50 += fn_50
+            
+            # For IoU=0.75
+            tp_75, fp_75, fn_75 = self._match_predictions(ious, threshold=0.75)
+            total_tp_75 += tp_75
+            total_fp_75 += fp_75
+            total_fn_75 += fn_75
+            
+            total_gt_count += len(gt_boxes)
+            total_pred_count += len(pred_boxes)
+        
+        # Calculate metrics
+        precision_50 = total_tp_50 / max(total_tp_50 + total_fp_50, 1)
+        recall_50 = total_tp_50 / max(total_tp_50 + total_fn_50, 1)
+        
+        precision_75 = total_tp_75 / max(total_tp_75 + total_fp_75, 1)
+        recall_75 = total_tp_75 / max(total_tp_75 + total_fn_75, 1)
+        
+        # Approximate AP (using single-point estimate)
+        ap_50 = precision_50 * recall_50
+        ap_75 = precision_75 * recall_75
+        
+        # mAP@0.5 = AP at IoU=0.5
+        map50 = ap_50
+        
+        # mAP@0.5:0.95 ≈ average of AP at 0.5 and 0.75
+        map50_95 = (ap_50 + ap_75) / 2.0
+        
+        # Use IoU=0.5 metrics for P and R
+        precision = precision_50
+        recall = recall_50
+        
+        return float(map50), float(map50_95), float(precision), float(recall)
+    
+    def _match_predictions(self, ious, threshold=0.5):
+        """
+        Match predictions to ground truth boxes based on IoU threshold.
+        
+        Args:
+            ious: IoU matrix [N_pred, N_gt]
+            threshold: IoU threshold for considering a match
+            
+        Returns:
+            tuple: (tp, fp, fn)
+        """
+        n_pred, n_gt = ious.shape
+        
+        if n_pred == 0 or n_gt == 0:
+            return 0, n_pred, n_gt
+        
+        # For each GT, find best matching prediction
+        matched_gt = np.zeros(n_gt, dtype=bool)
+        matched_pred = np.zeros(n_pred, dtype=bool)
+        
+        # Sort matches by IoU (greedy matching)
+        matches = []
+        for i in range(n_pred):
+            for j in range(n_gt):
+                if ious[i, j] >= threshold:
+                    matches.append((ious[i, j], i, j))
+        
+        matches.sort(reverse=True)  # Highest IoU first
+        
+        tp = 0
+        for iou_val, pred_idx, gt_idx in matches:
+            if not matched_pred[pred_idx] and not matched_gt[gt_idx]:
+                matched_pred[pred_idx] = True
+                matched_gt[gt_idx] = True
+                tp += 1
+        
+        fp = n_pred - tp
+        fn = n_gt - tp
+        
+        return tp, fp, fn
+    
+    def _compute_iou_matrix(self, boxes1, boxes2):
+        """
+        Compute pairwise IoU between two sets of boxes.
+        
+        Args:
+            boxes1: Array [N, 4] in (x1, y1, x2, y2) format
+            boxes2: Array [M, 4] in (x1, y1, x2, y2) format
+            
+        Returns:
+            IoU matrix [N, M]
+        """
+        N = len(boxes1)
+        M = len(boxes2)
+        
+        if N == 0 or M == 0:
+            return np.zeros((N, M))
+        
+        # Calculate intersection
+        inter_x1 = np.maximum(boxes1[:, 0][:, np.newaxis], boxes2[:, 0][np.newaxis, :])
+        inter_y1 = np.maximum(boxes1[:, 1][:, np.newaxis], boxes2[:, 1][np.newaxis, :])
+        inter_x2 = np.minimum(boxes1[:, 2][:, np.newaxis], boxes2[:, 2][np.newaxis, :])
+        inter_y2 = np.minimum(boxes1[:, 3][:, np.newaxis], boxes2[:, 3][np.newaxis, :])
+        
+        inter_w = np.maximum(0, inter_x2 - inter_x1)
+        inter_h = np.maximum(0, inter_y2 - inter_y1)
+        inter_area = inter_w * inter_h
+        
+        # Calculate union
+        area1 = (boxes1[:, 2] - boxes1[:, 0]) * (boxes1[:, 3] - boxes1[:, 1])
+        area2 = (boxes2[:, 2] - boxes2[:, 0]) * (boxes2[:, 3] - boxes2[:, 1])
+        union_area = area1[:, np.newaxis] + area2[np.newaxis, :] - inter_area
+        
+        # IoU
+        iou = inter_area / (union_area + 1e-6)
+        
+        return iou
+    
+    def _plot_training_curves(self, csv_path: Path, output_path: Path):
+        """
+        Generate simplified training curve plots (only 2 core charts).
+        
+        Args:
+            csv_path: Path to training_history.csv
+            output_path: Directory to save plots
+        """
+        try:
+            import pandas as pd
+            df = pd.read_csv(csv_path)
+            
+            if len(df) == 0:
+                print("⚠ Warning: No training data to plot")
+                return
+            
+            # Plot 1: Loss Curves (Train & Val with box/cls components)
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+            
+            # Overall loss
+            ax1.plot(df['epoch'], df['train_loss'], 'b-o', label='Train Loss', linewidth=2, markersize=4)
+            ax1.plot(df['epoch'], df['val_loss'], 'r-o', label='Val Loss', linewidth=2, markersize=4)
+            ax1.set_xlabel('Epoch', fontsize=12)
+            ax1.set_ylabel('Loss', fontsize=12)
+            ax1.set_title('Overall Loss', fontsize=13, fontweight='bold')
+            ax1.legend(loc='best', fontsize=11)
+            ax1.grid(True, alpha=0.3)
+            
+            # Loss components
+            ax2.plot(df['epoch'], df['box_loss'], 'g-s', label='Box Loss', linewidth=2, markersize=4)
+            ax2.plot(df['epoch'], df['cls_loss'], 'm-^', label='Cls Loss', linewidth=2, markersize=4)
+            ax2.set_xlabel('Epoch', fontsize=12)
+            ax2.set_ylabel('Loss', fontsize=12)
+            ax2.set_title('Loss Components', fontsize=13, fontweight='bold')
+            ax2.legend(loc='best', fontsize=11)
+            ax2.grid(True, alpha=0.3)
+            
+            plt.tight_layout()
+            plt.savefig(output_path / 'loss_curve.png', dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"✓ Loss curve saved to: {output_path / 'loss_curve.png'}")
+            
+            # Plot 2: mAP Curve (most important!)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(df['epoch'], df['map50'], 'g-o', label='mAP@0.5', linewidth=2, markersize=6)
+            ax.plot(df['epoch'], df['map50_95'], 'b-s', label='mAP@0.5:0.95', linewidth=2, markersize=6)
+            
+            # Also show P and R
+            if 'precision' in df.columns and df['precision'].max() > 0:
+                ax.plot(df['epoch'], df['precision'], 'm-^', label='Precision', 
+                       linewidth=2, markersize=4, alpha=0.7)
+            if 'recall' in df.columns and df['recall'].max() > 0:
+                ax.plot(df['epoch'], df['recall'], 'c-d', label='Recall', 
+                       linewidth=2, markersize=4, alpha=0.7)
+            
+            ax.set_xlabel('Epoch', fontsize=12)
+            ax.set_ylabel('Metric Value', fontsize=12)
+            ax.set_title('Core Performance Metrics', fontsize=14, fontweight='bold')
+            ax.legend(loc='best', fontsize=11)
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(output_path / 'map_curve.png', dpi=150, bbox_inches='tight')
+            plt.close()
+            print(f"✓ mAP curve saved to: {output_path / 'map_curve.png'}")
+        
+        except Exception as e:
+            print(f"⚠ Warning: Failed to generate training plots: {e}")

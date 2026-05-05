@@ -59,6 +59,8 @@ def main():
     print(f'Data root: {DATA_ROOT}')
     print(f'Annotation format: {ANNOTATION_FORMAT}')
     print(f'Classes: {CLASS_NAMES}')
+    print('\n💡 NOTE: Invalid bounding boxes (width ≤ 0 or height ≤ 0) will be')
+    print('   automatically filtered during data loading. This includes train, val, and test sets.')
     
     try:
         train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
@@ -141,6 +143,14 @@ def main():
     
     # Generate experiment summary using evaluator
     customization_desc = "None (Baseline - standard Faster R-CNN with ResNet50+FPN)"
+    
+    # Add note about bbox validation to metrics
+    metrics['data_quality_note'] = (
+        f"Train: {train_loader.dataset.skipped_annotations} invalid bboxes filtered; "
+        f"Val: {val_loader.dataset.skipped_annotations} invalid bboxes filtered; "
+        f"Test: {test_loader.dataset.skipped_annotations} invalid bboxes filtered. "
+        f"All datasets automatically skip bboxes with width ≤ 0 or height ≤ 0."
+    )
     
     evaluator.generate_experiment_summary(
         output_dir=str(output_dir),

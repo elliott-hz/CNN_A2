@@ -201,7 +201,7 @@ class FasterRCNNTrainer:
                 print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
             # Fast mAP evaluation on validation set (< 5 seconds)
-            map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
+            map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device, epoch, self.epochs)
             print(f"Epoch {epoch+1}/{self.epochs} [Eval]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
             # Log to CSV with core metrics
@@ -255,9 +255,16 @@ class FasterRCNNTrainer:
         
         return history
     
-    def _fast_evaluate(self, model, val_loader, device):
+    def _fast_evaluate(self, model, val_loader, device, epoch=0, epochs=1):
         """
         Fast mAP evaluation (< 5 seconds) using simplified IoU matching.
+        
+        Args:
+            model: FasterRCNNDetector instance
+            val_loader: Validation data loader
+            device: Device to run evaluation on
+            epoch: Current epoch number (for progress bar display)
+            epochs: Total number of epochs (for progress bar display)
         
         Returns:
             tuple: (map50, map50_95, precision, recall)
@@ -266,7 +273,7 @@ class FasterRCNNTrainer:
         all_gts = []
         
         # Collect predictions and ground truths with progress bar
-        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Eval]", dynamic_ncols=True, leave=False)
+        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Eval]", ncols=80, leave=False)
         
         with torch.no_grad():
             for images, targets in eval_pbar:

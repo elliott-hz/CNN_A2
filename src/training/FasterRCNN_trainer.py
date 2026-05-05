@@ -123,36 +123,94 @@ class FasterRCNNTrainer:
             # Training epoch
             model.model.train()
             epoch_loss = 0.0
+            batch_count = 0
+            skipped_batches = 0
+            
+            print(f"\nEpoch {epoch+1}/{self.epochs} - Training...")
             
             for batch_idx, (images, targets) in enumerate(train_loader):
+                # **DEBUG: Print first batch info to understand structure**
+                if epoch == 0 and batch_idx == 0:
+                    print(f"\n🔍 DEBUG: First batch structure:")
+                    print(f"   Type of images: {type(images)}")
+                    print(f"   Number of images: {len(images)}")
+                    print(f"   Image shapes: {[img.shape for img in images]}")
+                    print(f"   Type of targets: {type(targets)}")
+                    print(f"   Number of targets: {len(targets)}")
+                    if len(targets) > 0:
+                        print(f"   Type of first target: {type(targets[0])}")
+                        print(f"   Keys in first target: {targets[0].keys()}")
+                        print(f"   Boxes shape: {targets[0]['boxes'].shape}")
+                        print(f"   Labels shape: {targets[0]['labels'].shape}")
+                
                 images = [img.to(device) for img in images]
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 
+                # **CRITICAL: Skip batches where all images have no valid bboxes**
+                # This can happen after bbox filtering. Empty targets cause loss_dict issues.
+                if all(len(t['boxes']) == 0 for t in targets):
+                    skipped_batches += 1
+                    continue
+                
                 loss_dict = model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
+                
+                # **Robust Error Handling: Check loss_dict type and handle edge cases**
+                if isinstance(loss_dict, dict):
+                    # Normal case: dict of losses
+                    losses = sum(loss for loss in loss_dict.values())
+                elif isinstance(loss_dict, (list, tuple)):
+                    # Edge case: returned as list/tuple (handle gracefully by skipping)
+                    print(f"\n⚠️ Warning: Batch {batch_idx} returned {type(loss_dict)} instead of dict")
+                    print(f"   Content: {loss_dict}")
+                    print(f"   Targets boxes: {[len(t['boxes']) for t in targets]}")
+                    skipped_batches += 1
+                    continue
+                else:
+                    raise TypeError(f"Model returned unexpected type {type(loss_dict)}. Expected dict.")
                 
                 optimizer.zero_grad()
                 losses.backward()
                 optimizer.step()
                 
                 epoch_loss += losses.item()
+                batch_count += 1
             
-            avg_train_loss = epoch_loss / len(train_loader)
+            # Calculate average loss (only from non-skipped batches)
+            avg_train_loss = epoch_loss / max(batch_count, 1)
+            
+            # Report skipped batches if any
+            if skipped_batches > 0:
+                print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
             # Validation epoch
             model.model.eval()
             val_loss = 0.0
+            val_batch_count = 0
             
             with torch.no_grad():
-                for images, targets in val_loader:
+                for batch_idx, (images, targets) in enumerate(val_loader):
                     images = [img.to(device) for img in images]
                     targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                     
+                    # **CRITICAL: Skip batches where all images have no valid bboxes**
+                    if all(len(t['boxes']) == 0 for t in targets):
+                        continue
+                    
                     loss_dict = model(images, targets)
-                    losses = sum(loss for loss in loss_dict.values())
-                    val_loss += losses.item()
+                    
+                    # **Handle both dict and list/tuple cases**
+                    if isinstance(loss_dict, dict):
+                        losses = sum(loss for loss in loss_dict.values())
+                        val_loss += losses.item()
+                        val_batch_count += 1
+                    elif isinstance(loss_dict, (list, tuple)):
+                        # Skip this batch if it returns unexpected format
+                        print(f"  ⚠️ Warning: Validation batch {batch_idx} returned {type(loss_dict)}, skipping")
+                        continue
+                    else:
+                        raise TypeError(f"Model returned unexpected type {type(loss_dict)} in validation.")
             
-            avg_val_loss = val_loss / len(val_loader)
+            avg_val_loss = val_loss / max(val_batch_count, 1)
             
             # Log to CSV
             csv_writer.writerow([epoch + 1, f'{avg_train_loss:.4f}', 

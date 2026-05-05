@@ -10,6 +10,40 @@ import csv
 from pathlib import Path
 from typing import Dict, Any, List
 
+# ==============================================================================
+# Training Configurations for Experiments V1, V2, V3
+# ==============================================================================
+
+FASTERRCNN_V1_CONFIG = {
+    # Baseline Configuration
+    'learning_rate': 0.001,
+    'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
+    'epochs': 50,
+    'optimizer': 'adam',
+    'weight_decay': 1e-4,
+    'patience': 10,         # Early stopping patience
+}
+
+FASTERRCNN_V2_CONFIG = {
+    # Deeper Backbone Configuration (Added Conv Layers)
+    'learning_rate': 0.0005, # Lower LR for deeper model stability
+    'batch_size': 2,         # Same batch size (deeper model uses slightly more memory)
+    'epochs': 60,            # More epochs for convergence
+    'optimizer': 'adam',
+    'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
+    'patience': 15,          # Longer patience for deeper model
+}
+
+FASTERRCNN_V3_CONFIG = {
+    # Shallower Backbone Configuration (Reduced Conv Layers)
+    'learning_rate': 0.001,
+    'batch_size': 2,         # Can potentially increase but keeping consistent
+    'epochs': 40,            # Fewer epochs needed for simpler model
+    'optimizer': 'adam',
+    'weight_decay': 1e-4,
+    'patience': 10,          # Standard patience
+}
+
 
 class FasterRCNNTrainer:
     """
@@ -22,19 +56,25 @@ class FasterRCNNTrainer:
     - CSV metrics logging (epoch-by-epoch)
     """
     
-    def __init__(self, learning_rate: float = 0.001, weight_decay: float = 1e-4):
+    def __init__(self, config: Dict[str, Any]):
         """
-        Initialize Faster R-CNN trainer.
+        Initialize Faster R-CNN trainer with complete training configuration.
         
         Args:
-            learning_rate: Initial learning rate
-            weight_decay: L2 regularization
+            config: Training configuration dictionary containing:
+                - learning_rate: Initial learning rate
+                - weight_decay: L2 regularization
+                - epochs: Number of training epochs
+                - patience: Early stopping patience
+                - optimizer: Optimizer type (currently only 'adam' supported)
         """
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
+        self.learning_rate = config['learning_rate']
+        self.weight_decay = config['weight_decay']
+        self.epochs = config['epochs']
+        self.patience = config['patience']
+        self.optimizer_type = config.get('optimizer', 'adam')
     
-    def train(self, model, train_loader, val_loader, epochs: int, 
-             output_dir: str, patience: int = 10) -> Dict:
+    def train(self, model, train_loader, val_loader, output_dir: str) -> Dict:
         """
         Train Faster R-CNN model with CSV logging.
         
@@ -42,9 +82,7 @@ class FasterRCNNTrainer:
             model: FasterRCNNDetector instance
             train_loader: Training data loader
             val_loader: Validation data loader
-            epochs: Number of epochs
             output_dir: Directory to save outputs
-            patience: Early stopping patience
             
         Returns:
             Training history dictionary
@@ -74,14 +112,14 @@ class FasterRCNNTrainer:
         early_stop_counter = 0
         
         print(f"Training configuration:")
-        print(f"  Epochs: {epochs}")
+        print(f"  Epochs: {self.epochs}")
         print(f"  Learning rate: {self.learning_rate}")
         print(f"  Weight decay: {self.weight_decay}")
         print(f"  Device: {device}")
-        print(f"  Early stopping patience: {patience}")
+        print(f"  Early stopping patience: {self.patience}")
         print(f"  CSV logging: {csv_path}")
         
-        for epoch in range(epochs):
+        for epoch in range(self.epochs):
             # Training epoch
             model.model.train()
             epoch_loss = 0.0
@@ -102,60 +140,56 @@ class FasterRCNNTrainer:
             avg_train_loss = epoch_loss / len(train_loader)
             
             # Validation epoch
-            val_loss = self._validate(model, val_loader, device)
+            model.model.eval()
+            val_loss = 0.0
+            
+            with torch.no_grad():
+                for images, targets in val_loader:
+                    images = [img.to(device) for img in images]
+                    targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                    
+                    loss_dict = model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
+                    val_loss += losses.item()
+            
+            avg_val_loss = val_loss / len(val_loader)
             
             # Log to CSV
-            current_lr = optimizer.param_groups[0]['lr']
-            csv_writer.writerow([epoch + 1, f'{avg_train_loss:.6f}', 
-                               f'{val_loss:.6f}', f'{current_lr:.8f}'])
+            csv_writer.writerow([epoch + 1, f'{avg_train_loss:.4f}', 
+                               f'{avg_val_loss:.4f}', f'{self.learning_rate:.8f}'])
             csv_file.flush()
             
-            print(f'Epoch {epoch+1}/{epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {val_loss:.4f} | LR: {current_lr:.6f}')
+            # Print progress
+            if (epoch + 1) % 5 == 0 or epoch == 0:
+                print(f'Epoch [{epoch+1}/{self.epochs}] '
+                      f'Train Loss: {avg_train_loss:.4f} | '
+                      f'Val Loss: {avg_val_loss:.4f}')
             
-            # Save best model
-            if val_loss < best_loss:
-                best_loss = val_loss
+            # Checkpoint and early stopping
+            if avg_val_loss < best_loss:
+                best_loss = avg_val_loss
                 early_stop_counter = 0
                 
-                checkpoint_path = output_path / 'best_model.pth'
-                model.save(str(checkpoint_path))
-                print(f'  ✓ Best model saved (Val Loss: {val_loss:.4f})')
+                # Save best model
+                torch.save(model.model.state_dict(), output_path / 'best_model.pth')
+                print(f'  ✓ New best model saved (val_loss: {best_loss:.4f})')
             else:
                 early_stop_counter += 1
-            
-            # Early stopping
-            if early_stop_counter >= patience:
-                print(f'\nEarly stopping at epoch {epoch+1}')
-                break
+                if early_stop_counter >= self.patience:
+                    print(f'\nEarly stopping triggered at epoch {epoch+1}')
+                    break
         
         csv_file.close()
-        print(f'\n✓ Training history saved to: {csv_path}')
         
-        return {'best_loss': best_loss, 'output_dir': output_path}
-    
-    def _validate(self, model, val_loader, device) -> float:
-        """
-        Run validation loop.
+        history = {
+            'best_loss': best_loss,
+            'total_epochs': epoch + 1,
+            'early_stopped': early_stop_counter >= self.patience
+        }
         
-        Args:
-            model: FasterRCNNDetector instance
-            val_loader: Validation data loader
-            device: Computation device
-            
-        Returns:
-            Average validation loss
-        """
-        model.model.eval()
-        val_loss = 0.0
+        print(f"\nTraining completed!")
+        print(f"  Best validation loss: {best_loss:.4f}")
+        print(f"  Total epochs: {history['total_epochs']}")
+        print(f"  Early stopped: {history['early_stopped']}")
         
-        with torch.no_grad():
-            for images, targets in val_loader:
-                images = [img.to(device) for img in images]
-                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                
-                loss_dict = model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
-                val_loss += losses.item()
-        
-        avg_val_loss = val_loss / len(val_loader)
-        return avg_val_loss
+        return history

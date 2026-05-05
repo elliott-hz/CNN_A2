@@ -25,8 +25,8 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_V2_CONFIG
-from src.training.FasterRCNN_trainer import FasterRCNNTrainer
+from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_V2_CONFIG as MODEL_CONFIG
+from src.training.FasterRCNN_trainer import FasterRCNNTrainer, FASTERRCNN_V2_CONFIG as TRAIN_CONFIG
 from src.evaluation.detection_evaluator import DetectionEvaluator
 from src.data_processing.faster_rcnn_dataloader import create_faster_rcnn_dataloaders
 
@@ -43,10 +43,6 @@ def main():
     DATA_ROOT = f"data/{STUDENT_ID}/Object_Detection/coco"  # Using COCO format
     ANNOTATION_FORMAT = 'coco'  # Options: 'coco', 'pascal', 'yolo'
     CLASS_NAMES = ['Cell', 'Cell-Multi', 'No-Anomaly', 'Shadowing', 'Unclassified']
-    
-    EPOCHS = 60  # More epochs for deeper model convergence
-    BATCH_SIZE = 2  # Same batch size (deeper model uses slightly more memory)
-    LR = 0.0005  # Lower learning rate for stability
     
     # Create output directory with experiment name and timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -74,7 +70,7 @@ def main():
     try:
         train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
             data_root=DATA_ROOT,
-            batch_size=BATCH_SIZE,
+            batch_size=TRAIN_CONFIG['batch_size'],
             num_workers=2,
             annotation_format=ANNOTATION_FORMAT,
             class_names=CLASS_NAMES
@@ -97,14 +93,14 @@ def main():
     # Update config with correct number of classes (including background)
     num_classes = len(CLASS_NAMES) + 1  # +1 for background
     model_config = {
-        **FASTERRCNN_V2_CONFIG,
+        **MODEL_CONFIG,
         'num_classes': num_classes
     }
     
     model = FasterRCNNDetector(**model_config)
     print(f'Number of classes: {num_classes} ({len(CLASS_NAMES)} + background)')
-    print(f'Image size: {FASTERRCNN_V2_CONFIG["min_size"]}x{FASTERRCNN_V2_CONFIG["max_size"]}')
-    print(f'Customization type: {FASTERRCNN_V2_CONFIG["customize_type"]}')
+    print(f'Image size: {MODEL_CONFIG["min_size"]}x{MODEL_CONFIG["max_size"]}')
+    print(f'Customization type: {MODEL_CONFIG["customize_type"]}')
     print(f'Customization: Added 2 Conv-BN-ReLU blocks after layer2')
     print(f'  - Location: Between ResNet50 layer2 and layer3')
     print(f'  - Change: +6 convolutional layers (512 channels each)')
@@ -117,15 +113,13 @@ def main():
     
     # Step 3: Train
     print("\n[3/5] Training model...")
-    trainer = FasterRCNNTrainer(learning_rate=LR, weight_decay=5e-4)  # Higher weight decay for regularization
+    trainer = FasterRCNNTrainer(TRAIN_CONFIG)
     
     history = trainer.train(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        epochs=EPOCHS,
-        output_dir=str(output_dir / 'training'),
-        patience=15  # Longer patience for deeper model
+        output_dir=str(output_dir / 'training')
     )
     
     print(f'Training completed! Best val loss: {history["best_loss"]:.4f}')
@@ -169,13 +163,7 @@ def main():
         output_dir=str(output_dir),
         experiment_name="V2: Faster R-CNN Deeper Backbone",
         model_config=model_config,
-        training_config={
-            'epochs': EPOCHS,
-            'batch_size': BATCH_SIZE,
-            'learning_rate': LR,
-            'weight_decay': 5e-4,
-            'patience': 15
-        },
+        training_config=TRAIN_CONFIG,
         metrics=metrics,
         customization_details=customization_desc
     )

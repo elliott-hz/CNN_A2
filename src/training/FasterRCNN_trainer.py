@@ -127,6 +127,12 @@ class FasterRCNNTrainer:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.model.to(device)
         
+        # Print model architecture summary
+        print(f"\nModel Architecture:")
+        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(f"  Total trainable parameters: {total_params:,}")
+        print(f"  Model structure:\n{model.model}\n")
+        
         best_loss = float('inf')
         best_map50 = 0.0
         early_stop_counter = 0
@@ -202,7 +208,6 @@ class FasterRCNNTrainer:
             
             # Fast mAP evaluation on validation set (< 5 seconds)
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device, epoch, self.epochs)
-            print(f"Epoch {epoch+1}/{self.epochs} [Eval]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
             # Log to CSV with core metrics
             current_lr = scheduler.get_last_lr()[0]
@@ -294,13 +299,20 @@ class FasterRCNNTrainer:
                 # Update progress bar
                 eval_pbar.set_postfix({'batch': len(images)})
         
-        eval_pbar.close()
-        
         if len(all_preds) == 0 or len(all_gts) == 0:
             return 0.0, 0.0, 0.0, 0.0
         
         # Compute fast mAP
         map50, map50_95, precision, recall = self._compute_fast_map(all_preds, all_gts)
+        
+        # Update progress bar with final metrics before closing
+        eval_pbar.set_postfix({
+            'P': f'{precision:.3f}',
+            'R': f'{recall:.3f}',
+            'mAP@0.5': f'{map50:.3f}',
+            'mAP@0.5:0.95': f'{map50_95:.3f}'
+        })
+        eval_pbar.close()
         
         return map50, map50_95, precision, recall
     

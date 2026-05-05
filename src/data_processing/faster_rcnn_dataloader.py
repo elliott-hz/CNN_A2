@@ -366,7 +366,7 @@ class FasterRCNNDataset(Dataset):
 def create_faster_rcnn_dataloaders(
     data_root: str,
     batch_size: int = 4,
-    num_workers: int = 2,
+    num_workers: int = 4,
     annotation_format: str = 'coco',
     class_names: List[str] = None
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
@@ -427,14 +427,16 @@ def create_faster_rcnn_dataloaders(
     def collate_fn(batch):
         return tuple(zip(*batch))
     
-    # Create DataLoaders
+    # Create DataLoaders with optimizations for faster training
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
         collate_fn=collate_fn,
-        drop_last=True
+        drop_last=True,
+        pin_memory=True,
+        persistent_workers=(num_workers > 0)
     )
     
     val_loader = DataLoader(
@@ -442,7 +444,9 @@ def create_faster_rcnn_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        collate_fn=collate_fn
+        collate_fn=collate_fn,
+        pin_memory=True,
+        persistent_workers=(num_workers > 0)
     )
     
     test_loader = DataLoader(
@@ -450,7 +454,9 @@ def create_faster_rcnn_dataloaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        collate_fn=collate_fn
+        collate_fn=collate_fn,
+        pin_memory=True,
+        persistent_workers=(num_workers > 0)
     )
     
     # Report on data loading and bbox validation

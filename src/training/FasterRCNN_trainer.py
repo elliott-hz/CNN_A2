@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Any, List
 from tqdm import tqdm
+from torch.cuda.amp import autocast, GradScaler
 
 # ==============================================================================
 # Training Configurations for Experiments V1, V2, V3
@@ -127,6 +128,10 @@ class FasterRCNNTrainer:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.model.to(device)
         
+        # Setup mixed precision training (AMP) for faster training
+        use_amp = torch.cuda.is_available()
+        scaler = GradScaler(enabled=use_amp)
+        
         # Print model architecture summary
         print(f"\nModel Architecture:")
         total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -143,6 +148,7 @@ class FasterRCNNTrainer:
         print(f"  Weight decay: {self.weight_decay}")
         print(f"  Device: {device}")
         print(f"  Early stopping patience: {self.patience}")
+        print(f"  Mixed precision (AMP): {use_amp}")
         print(f"  CSV logging: {csv_path}")
         
         for epoch in range(self.epochs):
@@ -165,22 +171,26 @@ class FasterRCNNTrainer:
                     skipped_batches += 1
                     continue
                 
-                # Forward pass - returns loss dict in training mode
-                loss_dict = model(images, targets)
-                losses = sum(loss for loss in loss_dict.values())
+                # Forward pass with AMP (mixed precision)
+                with autocast(enabled=use_amp):
+                    loss_dict = model(images, targets)
+                    losses = sum(loss for loss in loss_dict.values())
                 
                 # Track box and cls loss components
                 epoch_box_loss += loss_dict.get('loss_box_reg', 0).item()
                 epoch_cls_loss += loss_dict.get('loss_classifier', 0).item()
                 
-                # Backward pass
+                # Backward pass with gradient scaling (AMP)
                 optimizer.zero_grad()
-                losses.backward()
+                scaler.scale(losses).backward()
                 
                 # Gradient clipping to prevent explosion
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
                 
-                optimizer.step()
+                # Optimizer step with scaler
+                scaler.step(optimizer)
+                scaler.update()
                 
                 epoch_loss += losses.item()
                 batch_count += 1

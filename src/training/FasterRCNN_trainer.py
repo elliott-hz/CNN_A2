@@ -23,7 +23,7 @@ FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 1,
+    'epochs': 2,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,         # Early stopping patience
@@ -33,7 +33,7 @@ FASTERRCNN_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0005, # Lower LR for deeper model stability
     'batch_size': 2,         # Same batch size (deeper model uses slightly more memory)
-    'epochs': 1,            # More epochs for convergence
+    'epochs': 2,            # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
     'patience': 15,          # Longer patience for deeper model
@@ -43,7 +43,7 @@ FASTERRCNN_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.001,
     'batch_size': 2,         # Can potentially increase but keeping consistent
-    'epochs': 1,            # Fewer epochs needed for simpler model
+    'epochs': 2,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,          # Standard patience
@@ -305,15 +305,10 @@ class FasterRCNNTrainer:
         # Compute fast mAP
         map50, map50_95, precision, recall = self._compute_fast_map(all_preds, all_gts)
         
-        # Update progress bar with final metrics before closing
-        eval_pbar.set_postfix({
-            'P': f'{precision:.3f}',
-            'R': f'{recall:.3f}',
-            'mAP@0.5': f'{map50:.3f}',
-            'mAP@0.5:0.95': f'{map50_95:.3f}'
-        })
-        eval_pbar.refresh()
         eval_pbar.close()
+        
+        # Print final metrics since tqdm postfix doesn't display after completion
+        print(f"Epoch {epoch+1}/{epochs} [Eval] completed: P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
         
         return map50, map50_95, precision, recall
     

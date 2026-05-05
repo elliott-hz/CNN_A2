@@ -149,7 +149,7 @@ class FasterRCNNTrainer:
             
             from tqdm import tqdm
             
-            train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Train]", ncols=100, leave=True)
+            train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Train]", dynamic_ncols=True, leave=True)
             
             for batch_idx, (images, targets) in enumerate(train_pbar):
                 images = [img.to(device) for img in images]
@@ -267,7 +267,7 @@ class FasterRCNNTrainer:
         all_gts = []
         
         # Collect predictions and ground truths with progress bar
-        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Eval]", ncols=80, leave=False)
+        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Eval]", dynamic_ncols=True, leave=False)
         
         with torch.no_grad():
             for images, targets in eval_pbar:

@@ -22,7 +22,7 @@ FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 15,
+    'epochs': 1,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,         # Early stopping patience
@@ -32,7 +32,7 @@ FASTERRCNN_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0005, # Lower LR for deeper model stability
     'batch_size': 2,         # Same batch size (deeper model uses slightly more memory)
-    'epochs': 15,            # More epochs for convergence
+    'epochs': 1,            # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
     'patience': 15,          # Longer patience for deeper model
@@ -42,7 +42,7 @@ FASTERRCNN_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.001,
     'batch_size': 2,         # Can potentially increase but keeping consistent
-    'epochs': 15,            # Fewer epochs needed for simpler model
+    'epochs': 1,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,          # Standard patience
@@ -104,9 +104,8 @@ class FasterRCNNTrainer:
         csv_writer = csv.writer(csv_file)
         csv_writer.writerow([
             'epoch', 
-            'train_loss', 'val_loss',
+            'train_loss', 
             'train_box_loss', 'train_cls_loss',
-            'val_box_loss', 'val_cls_loss',
             'precision', 'recall',
             'map50', 'map50_95',
             'learning_rate'
@@ -116,6 +115,13 @@ class FasterRCNNTrainer:
         params = [p for p in model.parameters() if p.requires_grad]
         optimizer = torch.optim.Adam(params, lr=self.learning_rate, 
                                     weight_decay=self.weight_decay)
+        
+        # Setup learning rate scheduler (Cosine Annealing)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=self.epochs,
+            eta_min=1e-6
+        )
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.model.to(device)
@@ -165,6 +171,10 @@ class FasterRCNNTrainer:
                 # Backward pass
                 optimizer.zero_grad()
                 losses.backward()
+                
+                # Gradient clipping to prevent explosion
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+                
                 optimizer.step()
                 
                 epoch_loss += losses.item()
@@ -191,75 +201,32 @@ class FasterRCNNTrainer:
             if skipped_batches > 0:
                 print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
-            # Validation epoch - compute loss
-            model.model.train()
-            val_loss = 0.0
-            val_box_loss = 0.0
-            val_cls_loss = 0.0
-            val_batch_count = 0
-            
-            val_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Val] ", ncols=100, leave=True)
-            
-            with torch.no_grad():
-                for batch_idx, (images, targets) in enumerate(val_pbar):
-                    images = [img.to(device) for img in images]
-                    targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                    
-                    # Skip empty target batches
-                    if all(len(t['boxes']) == 0 for t in targets):
-                        continue
-                    
-                    loss_dict = model(images, targets)
-                    losses = sum(loss for loss in loss_dict.values())
-                    
-                    # Track validation loss components
-                    val_box_loss += loss_dict.get('loss_box_reg', 0).item()
-                    val_cls_loss += loss_dict.get('loss_classifier', 0).item()
-                    
-                    val_loss += losses.item()
-                    val_batch_count += 1
-                    
-                    # Update progress bar with current metrics
-                    avg_val = val_loss / val_batch_count
-                    avg_box = val_box_loss / val_batch_count
-                    avg_cls = val_cls_loss / val_batch_count
-                    val_pbar.set_postfix({
-                        'loss': f'{avg_val:.3f}',
-                        'box': f'{avg_box:.3f}',
-                        'cls': f'{avg_cls:.3f}'
-                    })
-            
-            val_pbar.close()
-            avg_val_loss = val_loss / max(val_batch_count, 1)
-            avg_val_box_loss = val_box_loss / max(val_batch_count, 1)
-            avg_val_cls_loss = val_cls_loss / max(val_batch_count, 1)
-            
-            # Fast mAP evaluation (< 5 seconds)
+            # Fast mAP evaluation on validation set (< 5 seconds)
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
-            # print(f"  ✓ mAP computation completed\n")
             print(f"Epoch {epoch+1}/{self.epochs} [Val]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
-            # Log to CSV with core metrics (including validation loss components)
+            # Log to CSV with core metrics
+            current_lr = scheduler.get_last_lr()[0]
             csv_writer.writerow([
                 epoch + 1, 
                 f'{avg_train_loss:.4f}', 
-                f'{avg_val_loss:.4f}',
                 f'{avg_box_loss:.4f}',
                 f'{avg_cls_loss:.4f}',
-                f'{avg_val_box_loss:.4f}',
-                f'{avg_val_cls_loss:.4f}',
                 f'{precision:.4f}',
                 f'{recall:.4f}',
                 f'{map50:.4f}',
                 f'{map50_95:.4f}',
-                f'{self.learning_rate:.8f}'
+                f'{current_lr:.8f}'
             ])
             csv_file.flush()
+            
+            # Step the learning rate scheduler after each epoch
+            scheduler.step()
             
             # Checkpoint and early stopping (based on mAP@0.5 for better model selection)
             if map50 > best_map50:
                 best_map50 = map50
-                best_loss = avg_val_loss
+                # Use train loss as a secondary metric for logging if needed, or just track mAP
                 early_stop_counter = 0
                 
                 # Save best model
@@ -493,34 +460,20 @@ class FasterRCNNTrainer:
                 print("⚠ Warning: No training data to plot")
                 return
             
-            # Plot 1: Loss Curves (Train & Val with box/cls components)
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+            # Plot 1: Training Loss Curves
+            fig, ax1 = plt.subplots(figsize=(10, 6))
             
-            # Overall loss
-            ax1.plot(df['epoch'], df['train_loss'], 'b-o', label='Train Loss', linewidth=2, markersize=4)
-            ax1.plot(df['epoch'], df['val_loss'], 'r-o', label='Val Loss', linewidth=2, markersize=4)
+            ax1.plot(df['epoch'], df['train_loss'], 'b-o', label='Total Train Loss', linewidth=2, markersize=4)
+            if 'train_box_loss' in df.columns:
+                ax1.plot(df['epoch'], df['train_box_loss'], 'g-s', label='Box Loss', linewidth=2, markersize=4)
+            if 'train_cls_loss' in df.columns:
+                ax1.plot(df['epoch'], df['train_cls_loss'], 'm-^', label='Cls Loss', linewidth=2, markersize=4)
+            
             ax1.set_xlabel('Epoch', fontsize=12)
             ax1.set_ylabel('Loss', fontsize=12)
-            ax1.set_title('Overall Loss', fontsize=13, fontweight='bold')
+            ax1.set_title('Training Loss Components', fontsize=13, fontweight='bold')
             ax1.legend(loc='best', fontsize=11)
             ax1.grid(True, alpha=0.3)
-            
-            # Loss components (Train vs Val)
-            if 'train_box_loss' in df.columns and 'val_box_loss' in df.columns:
-                ax2.plot(df['epoch'], df['train_box_loss'], 'g-s', label='Train Box', linewidth=2, markersize=4)
-                ax2.plot(df['epoch'], df['val_box_loss'], 'c--d', label='Val Box', linewidth=2, markersize=4)
-                ax2.plot(df['epoch'], df['train_cls_loss'], 'm-^', label='Train Cls', linewidth=2, markersize=4)
-                ax2.plot(df['epoch'], df['val_cls_loss'], 'y--v', label='Val Cls', linewidth=2, markersize=4)
-            else:
-                # Fallback to old format
-                ax2.plot(df['epoch'], df['box_loss'], 'g-s', label='Box Loss', linewidth=2, markersize=4)
-                ax2.plot(df['epoch'], df['cls_loss'], 'm-^', label='Cls Loss', linewidth=2, markersize=4)
-            
-            ax2.set_xlabel('Epoch', fontsize=12)
-            ax2.set_ylabel('Loss', fontsize=12)
-            ax2.set_title('Loss Components (Train vs Val)', fontsize=13, fontweight='bold')
-            ax2.legend(loc='best', fontsize=11)
-            ax2.grid(True, alpha=0.3)
             
             plt.tight_layout()
             plt.savefig(output_path / 'loss_curve.png', dpi=150, bbox_inches='tight')

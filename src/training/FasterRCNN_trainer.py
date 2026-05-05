@@ -22,7 +22,7 @@ FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 1,
+    'epochs': 2,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 10,         # Early stopping patience
@@ -235,17 +235,9 @@ class FasterRCNNTrainer:
             avg_val_cls_loss = val_cls_loss / max(val_batch_count, 1)
             
             # Fast mAP evaluation (< 5 seconds)
-            print(f"\n  🎯 Computing fast mAP on validation set...")
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
-            print(f"  ✓ mAP computation completed\n")
-            
-            # Print epoch summary (preserved after progress bars)
-            print(f"\n{'='*80}")
-            print(f"  Epoch [{epoch+1}/{self.epochs}] Summary:")
-            print(f"  Loss: Train={avg_train_loss:.3f}, Val={avg_val_loss:.3f}")
-            print(f"  Components: box={avg_box_loss:.3f}/{avg_val_box_loss:.3f}, cls={avg_cls_loss:.3f}/{avg_val_cls_loss:.3f}")
-            print(f"  📊 P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
-            print(f"{'='*80}\n")
+            # print(f"  ✓ mAP computation completed\n")
+            print(f"Epoch {epoch+1}/{self.epochs} [Val]  P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
             # Log to CSV with core metrics (including validation loss components)
             csv_writer.writerow([
@@ -272,7 +264,7 @@ class FasterRCNNTrainer:
                 
                 # Save best model
                 torch.save(model.model.state_dict(), output_path / 'best_model.pth')
-                print(f'  ✓ New best model saved (mAP@0.5: {map50:.3f})')
+                print(f'  New best model saved (mAP@0.5: {map50:.3f})')
             else:
                 early_stop_counter += 1
                 if early_stop_counter >= self.patience:

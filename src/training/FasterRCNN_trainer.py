@@ -23,7 +23,7 @@ from torch.cuda.amp import autocast, GradScaler
 FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
-    'batch_size': 2,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
+    'batch_size': 4,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
     'epochs': 18,
     'optimizer': 'adam',
     'weight_decay': 1e-4,

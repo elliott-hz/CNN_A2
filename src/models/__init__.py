@@ -18,7 +18,12 @@ from .ResNet50ClassifierModel import (
 
 # Detection models
 from .YOLOv8DetectorModel import YOLOv8Detector, YOLOV8_BASELINE_CONFIG
-from .FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_BASELINE_CONFIG
+from .FasterRCNNDetectorModel import (
+    FasterRCNNDetector, 
+    FASTERRCNN_V1_CONFIG,
+    FASTERRCNN_V2_CONFIG,
+    FASTERRCNN_V3_CONFIG
+)
 
 __all__ = [
     # Classification
@@ -32,5 +37,8 @@ __all__ = [
     'CUSTOMIZED_DEEPER_V3_CONFIG',
     # Detection
     'YOLOv8Detector', 'YOLOV8_BASELINE_CONFIG',
-    'FasterRCNNDetector', 'FASTERRCNN_BASELINE_CONFIG'
+    'FasterRCNNDetector', 
+    'FASTERRCNN_V1_CONFIG',
+    'FASTERRCNN_V2_CONFIG',
+    'FASTERRCNN_V3_CONFIG'
 ]

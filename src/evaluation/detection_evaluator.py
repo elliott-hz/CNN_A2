@@ -243,14 +243,15 @@ class DetectionEvaluator:
         print(f'Experiment summary saved to: {summary_path}')
         return summary_path
     
-    def evaluate_fasterrcnn(self, model, test_loader, output_dir: str) -> Dict:
+    def evaluate_fasterrcnn(self, model, test_loader, output_dir: str, class_names: list) -> Dict:
         """
-        Evaluate Faster R-CNN model on test set.
+        Evaluate Faster R-CNN model on test set using COCO mAP metrics.
         
         Args:
             model: FasterRCNNDetector instance
             test_loader: Test data loader
             output_dir: Directory to save results
+            class_names: List of class names (excluding background)
             
         Returns:
             Evaluation metrics dictionary
@@ -259,22 +260,164 @@ class DetectionEvaluator:
         print("FASTER R-CNN MODEL EVALUATION")
         print("=" * 80)
         
+        from pycocotools.coco import COCO
+        from pycocotools.cocoeval import COCOeval
+        import numpy as np
+        
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # TODO: Implement proper Faster R-CNN evaluation
-        # For now, return placeholder metrics
-        metrics = {
-            'mAP50': 0.0,
-            'mAP50_95': 0.0,
-            'note': 'Faster R-CNN evaluation not yet implemented'
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model.model.to(device)
+        model.model.eval()
+        
+        # Collect all predictions and ground truths
+        all_predictions = []
+        all_ground_truths = []
+        image_id_counter = 0
+        
+        print(f"\nEvaluating on {len(test_loader.dataset)} test images...")
+        
+        with torch.no_grad():
+            for batch_idx, (images, targets) in enumerate(test_loader):
+                # Move to device
+                images = [img.to(device) for img in images]
+                
+                # Get predictions
+                predictions = model.model(images)
+                
+                # Process each image in the batch
+                for i, pred in enumerate(predictions):
+                    image_id = image_id_counter + i
+                    
+                    # Extract boxes, scores, and labels
+                    boxes = pred['boxes'].cpu().numpy()
+                    scores = pred['scores'].cpu().numpy()
+                    labels = pred['labels'].cpu().numpy()
+                    
+                    # Filter low confidence predictions (threshold: 0.5)
+                    conf_threshold = 0.5
+                    valid_mask = scores >= conf_threshold
+                    boxes = boxes[valid_mask]
+                    scores = scores[valid_mask]
+                    labels = labels[valid_mask]
+                    
+                    # Convert to COCO format [x, y, w, h]
+                    for j in range(len(boxes)):
+                        x1, y1, x2, y2 = boxes[j]
+                        w = x2 - x1
+                        h = y2 - y1
+                        
+                        all_predictions.append({
+                            'image_id': image_id,
+                            'category_id': int(labels[j]),  # COCO uses 1-indexed categories
+                            'bbox': [float(x1), float(y1), float(w), float(h)],
+                            'score': float(scores[j])
+                        })
+                
+                # Collect ground truths
+                for i, target in enumerate(targets):
+                    image_id = image_id_counter + i
+                    
+                    boxes = target['boxes'].cpu().numpy()
+                    labels = target['labels'].cpu().numpy()
+                    
+                    for j in range(len(boxes)):
+                        x1, y1, x2, y2 = boxes[j]
+                        w = x2 - x1
+                        h = y2 - y1
+                        
+                        all_ground_truths.append({
+                            'id': len(all_ground_truths) + 1,
+                            'image_id': image_id,
+                            'category_id': int(labels[j]),
+                            'bbox': [float(x1), float(y1), float(w), float(h)],
+                            'area': float(w * h),
+                            'iscrowd': 0
+                        })
+                
+                image_id_counter += len(images)
+                
+                # Print progress
+                if (batch_idx + 1) % 10 == 0:
+                    print(f"  Processed {batch_idx + 1}/{len(test_loader)} batches", end='\r')
+        
+        print()  # New line after progress
+        
+        print(f"Total predictions: {len(all_predictions)}")
+        print(f"Total ground truths: {len(all_ground_truths)}")
+        
+        # Create COCO-style annotation structure
+        coco_gt_data = {
+            'images': [{'id': i} for i in range(image_id_counter)],
+            'annotations': all_ground_truths,
+            'categories': [{'id': i+1, 'name': name} for i, name in enumerate(class_names)]
         }
         
-        print('Note: Faster R-CNN evaluation needs implementation')
+        # Save predictions and ground truths to temporary JSON files
+        import tempfile
+        import json
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(coco_gt_data, f)
+            gt_json_path = f.name
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json.dump(all_predictions, f)
+            pred_json_path = f.name
+        
+        try:
+            # Initialize COCO API
+            coco_gt = COCO(gt_json_path)
+            coco_dt = coco_gt.loadRes(pred_json_path)
+            
+            # Run COCO evaluation
+            coco_eval = COCOeval(coco_gt, coco_dt, 'bbox')
+            coco_eval.evaluate()
+            coco_eval.accumulate()
+            coco_eval.summarize()
+            
+            # Extract key metrics
+            metrics = {
+                'mAP50': float(coco_eval.stats[1]),      # mAP @ IoU=0.50
+                'mAP50_95': float(coco_eval.stats[0]),   # mAP @ IoU=0.50:0.95
+                'precision': float(coco_eval.stats[0]),  # Using mAP as proxy for precision
+                'recall': float(coco_eval.stats[8]),     # Recall @ IoU=0.50, maxDets=100
+            }
+            
+            print(f'\nEvaluation Metrics:')
+            print(f'  mAP@0.5: {metrics["mAP50"]:.4f}')
+            print(f'  mAP@0.5:0.95: {metrics["mAP50_95"]:.4f}')
+            print(f'  Precision: {metrics["precision"]:.4f}')
+            print(f'  Recall: {metrics["recall"]:.4f}')
+            
+        except Exception as e:
+            print(f'\n⚠️ Warning: COCO evaluation failed: {e}')
+            print('Using simplified metrics based on prediction counts.')
+            
+            # Fallback: simple metrics
+            metrics = {
+                'mAP50': 0.0,
+                'mAP50_95': 0.0,
+                'precision': len(all_predictions) / max(len(all_ground_truths), 1),
+                'recall': min(len(all_predictions) / max(len(all_ground_truths), 1), 1.0),
+                'note': f'COCO eval failed. Predictions: {len(all_predictions)}, GT: {len(all_ground_truths)}'
+            }
+        
+        finally:
+            # Clean up temp files
+            import os
+            try:
+                os.unlink(gt_json_path)
+                os.unlink(pred_json_path)
+            except:
+                pass
         
         # Save results
         metrics_path = output_path / 'evaluation_metrics.json'
         with open(metrics_path, 'w') as f:
             json.dump(metrics, f, indent=2)
+        
+        print(f'\nEvaluation results saved to: {metrics_path}')
         
         return metrics

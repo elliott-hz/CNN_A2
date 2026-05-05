@@ -126,18 +126,16 @@ def main():
     
     print(f'Training completed! Best val loss: {history["best_loss"]:.4f}')
     
-    # Step 4: Evaluate
-    print("\n[4/5] Evaluating model...")
+    # Step 4: Evaluate on test set
+    print("\n[4/5] Evaluating model on test set...")
     evaluator = DetectionEvaluator()
     
-    # Note: Faster R-CNN evaluation needs proper implementation
-    print('Note: Detailed mAP evaluation for Faster R-CNN requires additional implementation.')
-    print('Using training loss as proxy metric.')
-    
-    metrics = {
-        'best_val_loss': float(history['best_loss']),
-        'note': 'Full mAP evaluation pending implementation'
-    }
+    metrics = evaluator.evaluate_fasterrcnn(
+        model=model,
+        test_loader=test_loader,
+        output_dir=str(output_dir / 'evaluation'),
+        class_names=CLASS_NAMES
+    )
     
     # Save metrics
     metrics_path = output_dir / 'evaluation' / 'evaluation_metrics.json'

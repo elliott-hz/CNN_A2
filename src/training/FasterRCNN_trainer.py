@@ -278,7 +278,7 @@ class FasterRCNNTrainer:
         all_gts = []
         
         # Collect predictions and ground truths with progress bar
-        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Eval]", ncols=80, leave=False)
+        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{epochs} [Eval]", ncols=80, leave=True)
         
         with torch.no_grad():
             for images, targets in eval_pbar:

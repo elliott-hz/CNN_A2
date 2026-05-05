@@ -174,6 +174,16 @@ class FasterRCNNTrainer:
                 
                 epoch_loss += losses.item()
                 batch_count += 1
+                
+                # **Print training progress every 10 batches**
+                if (batch_idx + 1) % 10 == 0:
+                    current_avg_loss = epoch_loss / batch_count
+                    print(f"  [Epoch {epoch+1}] Batch {batch_idx+1}/{len(train_loader)} | "
+                          f"Batch Loss: {losses.item():.4f} | "
+                          f"Avg Loss: {current_avg_loss:.4f}", end='\r')
+            
+            # Print newline after epoch completes
+            print()
             
             # Calculate average loss (only from non-skipped batches)
             avg_train_loss = epoch_loss / max(batch_count, 1)
@@ -183,7 +193,10 @@ class FasterRCNNTrainer:
                 print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
             # Validation epoch
-            model.model.eval()
+            # **CRITICAL: Switch to train mode to compute loss (Faster R-CNN design)**
+            # In eval mode, model(images, targets) returns predictions (list), not losses (dict)
+            # We need train mode + no_grad to get validation loss
+            model.model.train()
             val_loss = 0.0
             val_batch_count = 0
             
@@ -196,6 +209,7 @@ class FasterRCNNTrainer:
                     if all(len(t['boxes']) == 0 for t in targets):
                         continue
                     
+                    # Forward pass - train mode returns loss dict even with no_grad
                     loss_dict = model(images, targets)
                     
                     # **Handle both dict and list/tuple cases**
@@ -203,13 +217,21 @@ class FasterRCNNTrainer:
                         losses = sum(loss for loss in loss_dict.values())
                         val_loss += losses.item()
                         val_batch_count += 1
+                        
+                        # **Print validation progress every 20 batches**
+                        if (batch_idx + 1) % 20 == 0:
+                            current_avg_val_loss = val_loss / val_batch_count
+                            print(f"  [Val] Batch {batch_idx+1}/{len(val_loader)} | "
+                                  f"Avg Val Loss: {current_avg_val_loss:.4f}", end='\r')
                     elif isinstance(loss_dict, (list, tuple)):
-                        # Skip this batch if it returns unexpected format
+                        # This should NOT happen now since we're in train mode
                         print(f"  ⚠️ Warning: Validation batch {batch_idx} returned {type(loss_dict)}, skipping")
                         continue
                     else:
                         raise TypeError(f"Model returned unexpected type {type(loss_dict)} in validation.")
             
+            # Print newline after validation completes
+            print()
             avg_val_loss = val_loss / max(val_batch_count, 1)
             
             # Log to CSV

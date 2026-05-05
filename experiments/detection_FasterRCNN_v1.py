@@ -12,11 +12,21 @@ Simple pipeline:
 import sys
 import json
 import torch
+import argparse
 from pathlib import Path
 from datetime import datetime
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    if v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    raise argparse.ArgumentTypeError('Boolean value expected.')
 
 from src.models.FasterRCNNDetectorModel import FasterRCNNDetector, FASTERRCNN_V1_CONFIG as MODEL_CONFIG
 from src.training.FasterRCNN_trainer import FasterRCNNTrainer, FASTERRCNN_V1_CONFIG as TRAIN_CONFIG
@@ -82,6 +92,11 @@ def main():
         traceback.print_exc()
         sys.exit(1)
     
+    parser = argparse.ArgumentParser(description='Run Faster R-CNN V1 experiment')
+    parser.add_argument('--pretrained', type=str2bool, default=True,
+                        help='Use pretrained backbone weights (True/False). Default: True')
+    args = parser.parse_args()
+
     # Step 2: Initialize model
     print("\n[2/5] Initializing Faster R-CNN model...")
     
@@ -89,12 +104,14 @@ def main():
     num_classes = len(CLASS_NAMES) + 1  # +1 for background
     model_config = {
         **MODEL_CONFIG,
-        'num_classes': num_classes
+        'num_classes': num_classes,
+        'pretrained': args.pretrained
     }
     
     model = FasterRCNNDetector(**model_config)
     print(f'Number of classes: {num_classes} ({len(CLASS_NAMES)} + background)')
     print(f'Image size: {MODEL_CONFIG["min_size"]}x{MODEL_CONFIG["max_size"]}')
+    print(f'Pretrained backbone: {args.pretrained}')
     print(f'Customization: None (Baseline)')
     
     # Count parameters

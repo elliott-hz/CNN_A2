@@ -53,6 +53,9 @@ class FasterRCNNDataset(Dataset):
         self.transforms = transforms
         self.class_names = class_names or []
         
+        # Statistics tracking
+        self.skipped_annotations = 0
+        
         # Load image-annotation pairs
         self.samples = self._load_samples()
         
@@ -164,6 +167,7 @@ class FasterRCNNDataset(Dataset):
         areas = []
         iscrowd = []
         
+        skipped_count = 0
         for annot in img_annots:
             # COCO format: [x, y, width, height]
             x, y, w, h = annot['bbox']
@@ -172,6 +176,7 @@ class FasterRCNNDataset(Dataset):
             # **VALIDATION: Skip invalid boxes (width or height <= 0)**
             # This handles dataset issues where boxes have zero/negative dimensions
             if w <= 0 or h <= 0:
+                skipped_count += 1
                 continue  # Skip this annotation
             
             boxes.append([x, y, x2, y2])
@@ -183,6 +188,11 @@ class FasterRCNNDataset(Dataset):
             
             areas.append(annot['area'])
             iscrowd.append(annot.get('iscrowd', 0))
+        
+        # Track statistics for reporting
+        if not hasattr(self, 'skipped_annotations'):
+            self.skipped_annotations = 0
+        self.skipped_annotations += skipped_count
         
         return {
             'boxes': torch.as_tensor(boxes, dtype=torch.float32) if boxes else torch.zeros((0, 4), dtype=torch.float32),
@@ -442,5 +452,16 @@ def create_faster_rcnn_dataloaders(
         num_workers=num_workers,
         collate_fn=collate_fn
     )
+    
+    # Report on data loading and bbox validation
+    print("\n" + "="*80)
+    print("BOUNDING BOX VALIDATION REPORT")
+    print("="*80)
+    print(f"Train dataset: {train_dataset.skipped_annotations} invalid bboxes skipped during loading")
+    print(f"Valid dataset: {val_dataset.skipped_annotations} invalid bboxes skipped during loading")
+    print(f"Test dataset: {test_dataset.skipped_annotations} invalid bboxes skipped during loading")
+    print("\n💡 NOTE: Invalid bboxes (width ≤ 0 or height ≤ 0) are automatically filtered")
+    print("   This prevents Faster R-CNN training from crashing due to dataset imperfections.")
+    print("="*80 + "\n")
     
     return train_loader, val_loader, test_loader

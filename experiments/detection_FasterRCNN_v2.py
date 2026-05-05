@@ -66,6 +66,8 @@ def main():
     print(f'Data root: {DATA_ROOT}')
     print(f'Annotation format: {ANNOTATION_FORMAT}')
     print(f'Classes: {CLASS_NAMES}')
+    print('\n💡 NOTE: Invalid bounding boxes (width ≤ 0 or height ≤ 0) will be')
+    print('   automatically filtered during data loading. This includes train, val, and test sets.')
     
     try:
         train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
@@ -157,6 +159,14 @@ def main():
         "- Total added: 6 convolutional layers (~4.7M parameters)\n"
         "- Benefits: Enhanced intermediate-scale feature representation\n"
         "- Purpose: Test if deeper architecture improves detection accuracy"
+    )
+    
+    # Add note about bbox validation to metrics
+    metrics['data_quality_note'] = (
+        f"Train: {train_loader.dataset.skipped_annotations} invalid bboxes filtered; "
+        f"Val: {val_loader.dataset.skipped_annotations} invalid bboxes filtered; "
+        f"Test: {test_loader.dataset.skipped_annotations} invalid bboxes filtered. "
+        f"All datasets automatically skip bboxes with width ≤ 0 or height ≤ 0."
     )
     
     evaluator.generate_experiment_summary(

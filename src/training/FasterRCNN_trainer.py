@@ -13,6 +13,7 @@ matplotlib.use('Agg')  # Non-interactive backend for saving figures
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Any, List
+from tqdm import tqdm
 
 # ==============================================================================
 # Training Configurations for Experiments V1, V2, V3
@@ -146,8 +147,6 @@ class FasterRCNNTrainer:
             epoch_cls_loss = 0.0
             batch_count = 0
             skipped_batches = 0
-            
-            from tqdm import tqdm
             
             train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Train]", dynamic_ncols=True, leave=True)
             

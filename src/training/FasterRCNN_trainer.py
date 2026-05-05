@@ -266,9 +266,11 @@ class FasterRCNNTrainer:
         all_preds = []
         all_gts = []
         
-        # Collect predictions and ground truths
+        # Collect predictions and ground truths with progress bar
+        eval_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Eval]", ncols=80, leave=False)
+        
         with torch.no_grad():
-            for images, targets in val_loader:
+            for images, targets in eval_pbar:
                 images = [img.to(device) for img in images]
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 
@@ -282,6 +284,11 @@ class FasterRCNNTrainer:
                 
                 all_preds.extend(predictions)
                 all_gts.extend(targets)
+                
+                # Update progress bar
+                eval_pbar.set_postfix({'batch': len(images)})
+        
+        eval_pbar.close()
         
         if len(all_preds) == 0 or len(all_gts) == 0:
             return 0.0, 0.0, 0.0, 0.0

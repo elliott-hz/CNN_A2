@@ -138,9 +138,9 @@ class FasterRCNNTrainer:
         print(f"  Total trainable parameters: {total_params:,}")
         print(f"  Model structure:\n{model.model}\n")
         
-        best_loss = float('inf')
         best_map50 = 0.0
         early_stop_counter = 0
+        best_train_loss = float('inf')
         
         print(f"Training configuration:")
         print(f"  Epochs: {self.epochs}")
@@ -211,6 +211,9 @@ class FasterRCNNTrainer:
             avg_train_loss = epoch_loss / max(batch_count, 1)
             avg_box_loss = epoch_box_loss / max(batch_count, 1)
             avg_cls_loss = epoch_cls_loss / max(batch_count, 1)
+
+            if avg_train_loss < best_train_loss:
+                best_train_loss = avg_train_loss
             
             # Report skipped batches if any
             if skipped_batches > 0:
@@ -258,13 +261,13 @@ class FasterRCNNTrainer:
         self._plot_training_curves(csv_path, output_path)
         
         history = {
-            'best_loss': best_loss,
+            'best_loss': best_train_loss,
             'total_epochs': epoch + 1,
             'early_stopped': early_stop_counter >= self.patience
         }
         
         print(f"\nTraining completed!")
-        print(f"  Best validation loss: {best_loss:.4f}")
+        print(f"  Best training loss: {best_train_loss:.4f}")
         print(f"  Total epochs: {history['total_epochs']}")
         print(f"  Early stopped: {history['early_stopped']}")
         

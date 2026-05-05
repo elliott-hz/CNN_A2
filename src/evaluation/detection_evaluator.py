@@ -6,6 +6,7 @@ Evaluates detection models and generates metrics and reports.
 
 import json
 import shutil
+import torch
 from pathlib import Path
 from typing import Dict
 from datetime import datetime

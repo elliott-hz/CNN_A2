@@ -60,23 +60,20 @@ class FasterRCNNDetector(nn.Module):
         """
         Add extra convolutional layers to the ResNet50 backbone after layer2.
         Purpose: Deepen shallow-layer feature extraction for better fine-grained detection.
+        
+        Strategy: Wrap layer3 with a Sequential that first applies custom conv layers,
+        then the original layer3. This preserves FPN's access to layer outputs.
         """
         try:
             # Access the ResNet50 backbone
             backbone = self.model.backbone.body
             
-            # Standard ResNet50 structure:
-            # conv1 -> bn1 -> relu -> maxpool -> layer1 -> layer2 -> layer3 -> layer4
-            # We'll add Conv layers after layer2 (before layer3)
-            
             device = next(self.model.parameters()).device
             
-            # Get channel dimensions from layer2 output and layer3 input
-            layer2_out_channels = backbone.layer2[-1].conv3.out_channels  # 512
-            layer3_in_channels = backbone.layer3[0].conv1.in_channels     # 512
+            # Get channel dimensions from layer2 output (should be 512)
+            layer2_out_channels = backbone.layer2[-1].conv3.out_channels
             
-            # Create new Conv-BN-ReLU blocks to insert
-            # These maintain spatial resolution while deepening features
+            # Create new Conv-BN-ReLU blocks
             new_block = nn.Sequential(
                 nn.Conv2d(layer2_out_channels, layer2_out_channels, kernel_size=3, 
                          stride=1, padding=1, bias=False),
@@ -88,30 +85,24 @@ class FasterRCNNDetector(nn.Module):
                 nn.ReLU(inplace=True)
             ).to(device)
             
-            # Store original layers
-            original_children = list(backbone.children())
+            # Store original layer3 and layer4
+            original_layer3 = backbone.layer3
+            original_layer4 = backbone.layer4
             
-            # Rebuild backbone with inserted layers
-            # Find layer2 index and insert after it
-            new_children = []
-            for name, module in backbone.named_children():
-                new_children.append((name, module))
-                if name == 'layer2':
-                    new_children.append(('custom_conv_block', new_block))
-            
-            # Replace backbone body
-            backbone_new = nn.Sequential(*[m for _, m in new_children])
-            
-            # Copy attributes from original Sequential
-            for name, module in new_children:
-                setattr(backbone_new, name, module)
-            
-            self.model.backbone.body = backbone_new
+            # Replace layer3 with: custom_conv -> original_layer3
+            # This way FPN can still access "layer3" output
+            backbone.layer3 = nn.Sequential(
+                new_block,
+                original_layer3
+            )
             
             print("✅ Added 2 convolutional layers to backbone after layer2 (deeper model)")
+            print(f"   Layer structure preserved for FPN compatibility")
             
         except Exception as e:
             print(f"⚠️ Warning: Could not add conv layers: {e}")
+            import traceback
+            traceback.print_exc()
             print("Continuing with standard model...")
     
     def _reduce_conv_layers(self):

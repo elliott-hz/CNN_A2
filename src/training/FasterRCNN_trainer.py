@@ -105,7 +105,8 @@ class FasterRCNNTrainer:
         csv_writer.writerow([
             'epoch', 
             'train_loss', 'val_loss',
-            'box_loss', 'cls_loss',
+            'train_box_loss', 'train_cls_loss',
+            'val_box_loss', 'val_cls_loss',
             'precision', 'recall',
             'map50', 'map50_95',
             'learning_rate'
@@ -140,9 +141,11 @@ class FasterRCNNTrainer:
             batch_count = 0
             skipped_batches = 0
             
-            print(f"\nEpoch {epoch+1}/{self.epochs} - Training...")
+            from tqdm import tqdm
             
-            for batch_idx, (images, targets) in enumerate(train_loader):
+            train_pbar = tqdm(train_loader, desc=f"  Train", ncols=100, leave=False)
+            
+            for batch_idx, (images, targets) in enumerate(train_pbar):
                 images = [img.to(device) for img in images]
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 
@@ -167,15 +170,17 @@ class FasterRCNNTrainer:
                 epoch_loss += losses.item()
                 batch_count += 1
                 
-                # Print training progress every 10 batches
-                if (batch_idx + 1) % 10 == 0:
-                    current_avg_loss = epoch_loss / batch_count
-                    print(f"  [Epoch {epoch+1}] Batch {batch_idx+1}/{len(train_loader)} | "
-                          f"Batch Loss: {losses.item():.4f} | "
-                          f"Avg Loss: {current_avg_loss:.4f}", end='\r')
+                # Update progress bar with current metrics
+                avg_loss = epoch_loss / batch_count
+                avg_box = epoch_box_loss / batch_count
+                avg_cls = epoch_cls_loss / batch_count
+                train_pbar.set_postfix({
+                    'loss': f'{avg_loss:.3f}',
+                    'box': f'{avg_box:.3f}',
+                    'cls': f'{avg_cls:.3f}'
+                })
             
-            # Print newline after epoch completes
-            print()
+            train_pbar.close()
             
             # Calculate average losses
             avg_train_loss = epoch_loss / max(batch_count, 1)
@@ -189,10 +194,23 @@ class FasterRCNNTrainer:
             # Validation epoch - compute loss and fast mAP
             model.model.train()
             val_loss = 0.0
+            val_box_loss = 0.0
+            val_cls_loss = 0.0
             val_batch_count = 0
             
+            from tqdm import tqdm
+            
+            print(f"\n  Training Epoch {epoch+1}/{self.epochs}:")
+            train_pbar = tqdm(range(len(train_loader)), desc="  Train", ncols=100, leave=False)
+            
+            # Re-run training loop with progress bar (already computed above, just for display)
+            # Note: We need to track this during the actual training loop
+            
+            print(f"  Validating:")
+            val_pbar = tqdm(val_loader, desc="  Val", ncols=100, leave=False)
+            
             with torch.no_grad():
-                for batch_idx, (images, targets) in enumerate(val_loader):
+                for batch_idx, (images, targets) in enumerate(val_pbar):
                     images = [img.to(device) for img in images]
                     targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                     
@@ -202,33 +220,45 @@ class FasterRCNNTrainer:
                     
                     loss_dict = model(images, targets)
                     losses = sum(loss for loss in loss_dict.values())
+                    
+                    # Track validation loss components
+                    val_box_loss += loss_dict.get('loss_box_reg', 0).item()
+                    val_cls_loss += loss_dict.get('loss_classifier', 0).item()
+                    
                     val_loss += losses.item()
                     val_batch_count += 1
                     
-                    # Print validation progress every 20 batches
-                    if (batch_idx + 1) % 20 == 0:
-                        current_avg_val_loss = val_loss / val_batch_count
-                        print(f"  [Val] Batch {batch_idx+1}/{len(val_loader)} | "
-                              f"Avg Val Loss: {current_avg_val_loss:.4f}", end='\r')
+                    # Update progress bar with current metrics
+                    avg_val = val_loss / val_batch_count
+                    avg_box = val_box_loss / val_batch_count
+                    avg_cls = val_cls_loss / val_batch_count
+                    val_pbar.set_postfix({
+                        'loss': f'{avg_val:.3f}',
+                        'box': f'{avg_box:.3f}',
+                        'cls': f'{avg_cls:.3f}'
+                    })
             
-            # Print newline after validation completes
-            print()
+            val_pbar.close()
             avg_val_loss = val_loss / max(val_batch_count, 1)
+            avg_val_box_loss = val_box_loss / max(val_batch_count, 1)
+            avg_val_cls_loss = val_cls_loss / max(val_batch_count, 1)
             
             # Fast mAP evaluation (< 5 seconds)
             print(f"\n  🎯 Computing fast mAP...")
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device)
             
-            print(f"  Epoch [{epoch+1}/{self.epochs}] - Loss: Train={avg_train_loss:.3f}, Val={avg_val_loss:.3f} | box={avg_box_loss:.3f}, cls={avg_cls_loss:.3f}")
+            print(f"  Epoch [{epoch+1}/{self.epochs}] - Loss: Train={avg_train_loss:.3f}, Val={avg_val_loss:.3f} | box={avg_box_loss:.3f}/{avg_val_box_loss:.3f}, cls={avg_cls_loss:.3f}/{avg_val_cls_loss:.3f}")
             print(f"  📊 P={precision:.3f}, R={recall:.3f}, mAP@0.5={map50:.3f}, mAP@0.5:0.95={map50_95:.3f}")
             
-            # Log to CSV with core metrics
+            # Log to CSV with core metrics (including validation loss components)
             csv_writer.writerow([
                 epoch + 1, 
                 f'{avg_train_loss:.4f}', 
                 f'{avg_val_loss:.4f}',
                 f'{avg_box_loss:.4f}',
                 f'{avg_cls_loss:.4f}',
+                f'{avg_val_box_loss:.4f}',
+                f'{avg_val_cls_loss:.4f}',
                 f'{precision:.4f}',
                 f'{recall:.4f}',
                 f'{map50:.4f}',
@@ -486,12 +516,20 @@ class FasterRCNNTrainer:
             ax1.legend(loc='best', fontsize=11)
             ax1.grid(True, alpha=0.3)
             
-            # Loss components
-            ax2.plot(df['epoch'], df['box_loss'], 'g-s', label='Box Loss', linewidth=2, markersize=4)
-            ax2.plot(df['epoch'], df['cls_loss'], 'm-^', label='Cls Loss', linewidth=2, markersize=4)
+            # Loss components (Train vs Val)
+            if 'train_box_loss' in df.columns and 'val_box_loss' in df.columns:
+                ax2.plot(df['epoch'], df['train_box_loss'], 'g-s', label='Train Box', linewidth=2, markersize=4)
+                ax2.plot(df['epoch'], df['val_box_loss'], 'c-d', label='Val Box', linewidth=2, markersize=4, linestyle='--')
+                ax2.plot(df['epoch'], df['train_cls_loss'], 'm-^', label='Train Cls', linewidth=2, markersize=4)
+                ax2.plot(df['epoch'], df['val_cls_loss'], 'y-v', label='Val Cls', linewidth=2, markersize=4, linestyle='--')
+            else:
+                # Fallback to old format
+                ax2.plot(df['epoch'], df['box_loss'], 'g-s', label='Box Loss', linewidth=2, markersize=4)
+                ax2.plot(df['epoch'], df['cls_loss'], 'm-^', label='Cls Loss', linewidth=2, markersize=4)
+            
             ax2.set_xlabel('Epoch', fontsize=12)
             ax2.set_ylabel('Loss', fontsize=12)
-            ax2.set_title('Loss Components', fontsize=13, fontweight='bold')
+            ax2.set_title('Loss Components (Train vs Val)', fontsize=13, fontweight='bold')
             ax2.legend(loc='best', fontsize=11)
             ax2.grid(True, alpha=0.3)
             

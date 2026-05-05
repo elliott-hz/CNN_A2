@@ -312,6 +312,7 @@ class FasterRCNNTrainer:
             'mAP@0.5': f'{map50:.3f}',
             'mAP@0.5:0.95': f'{map50_95:.3f}'
         })
+        eval_pbar.refresh()
         eval_pbar.close()
         
         return map50, map50_95, precision, recall

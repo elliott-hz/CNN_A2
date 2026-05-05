@@ -23,7 +23,7 @@ from torch.cuda.amp import autocast, GradScaler
 FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.0005,
-    'batch_size': 8,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
+    'batch_size': 4,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
     'epochs': 18,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
@@ -33,7 +33,7 @@ FASTERRCNN_V1_CONFIG = {
 FASTERRCNN_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0003, # Lower LR for deeper model stability
-    'batch_size': 8,         # Same batch size (deeper model uses slightly more memory)
+    'batch_size': 4,         # Same batch size (deeper model uses slightly more memory)
     'epochs': 20,            # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
@@ -43,7 +43,7 @@ FASTERRCNN_V2_CONFIG = {
 FASTERRCNN_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.0005,
-    'batch_size': 8,         # Can potentially increase but keeping consistent
+    'batch_size': 4,         # Can potentially increase but keeping consistent
     'epochs': 15,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,

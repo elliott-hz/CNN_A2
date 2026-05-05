@@ -24,7 +24,7 @@ FASTERRCNN_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.0005,
     'batch_size': 4,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 100,
+    'epochs': 2,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 15,         # Early stopping patience
@@ -34,7 +34,7 @@ FASTERRCNN_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0003, # Lower LR for deeper model stability
     'batch_size': 4,         # Same batch size (deeper model uses slightly more memory)
-    'epochs': 120,            # More epochs for convergence
+    'epochs': 2,            # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
     'patience': 20,          # Longer patience for deeper model
@@ -44,7 +44,7 @@ FASTERRCNN_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.0005,
     'batch_size': 4,         # Can potentially increase but keeping consistent
-    'epochs': 80,            # Fewer epochs needed for simpler model
+    'epochs': 2,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'patience': 15,          # Standard patience

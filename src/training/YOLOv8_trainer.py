@@ -15,11 +15,11 @@ YOLOV8_V1_CONFIG = {
     # Baseline Configuration
     'learning_rate': 0.001,
     'batch_size': 16,       # T4 GPU safe batch size
-    'epochs': 120,
+    'epochs': 300,
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'use_amp': True,        # Mixed precision
-    'patience': 15,         # Early stopping patience
+    'patience': 50,         # Early stopping patience
     'cos_lr': False,        # No cosine LR schedule for baseline
     'close_mosaic': 0,      # Keep mosaic augmentation throughout
 }
@@ -28,11 +28,11 @@ YOLOV8_V2_CONFIG = {
     # Deeper Backbone Configuration (Added Conv Layers)
     'learning_rate': 0.0005, # Lower LR for deeper model stability
     'batch_size': 12,        # Smaller batch due to larger model memory usage
-    'epochs': 150,           # More epochs for convergence
+    'epochs': 300,           # More epochs for convergence
     'optimizer': 'adam',
     'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
     'use_amp': True,
-    'patience': 20,          # Longer patience
+    'patience': 50,          # Longer patience
     'cos_lr': True,          # Use cosine LR schedule for better convergence
     'close_mosaic': 10,      # Close mosaic in last 10 epochs
 }
@@ -41,11 +41,11 @@ YOLOV8_V3_CONFIG = {
     # Shallower Backbone Configuration (Reduced Conv Layers)
     'learning_rate': 0.001,
     'batch_size': 20,        # Larger batch possible due to smaller model
-    'epochs': 100,            # Fewer epochs needed for simpler model
+    'epochs': 300,            # Fewer epochs needed for simpler model
     'optimizer': 'adam',
     'weight_decay': 1e-4,
     'use_amp': True,
-    'patience': 12,          # Shorter patience
+    'patience': 50,          # Shorter patience
     'cos_lr': False,
     'close_mosaic': 0,
 }

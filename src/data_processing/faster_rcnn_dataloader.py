@@ -79,7 +79,12 @@ class FasterRCNNDataset(Dataset):
         return samples
     
     def _load_coco_samples(self) -> List[Tuple[Path, Path]]:
-        """Load samples from COCO format annotations."""
+        """Load samples from COCO format annotations.
+        
+        Note: According to instructor guidance, we should NOT remove images 
+        with empty annotations. Background images help the model learn to 
+        avoid false positive detections.
+        """
         # Find annotation JSON file
         annot_files = list(self.annotation_dir.glob('*.json'))
         if not annot_files:
@@ -101,13 +106,20 @@ class FasterRCNNDataset(Dataset):
                 img_id_to_annots[img_id] = []
             img_id_to_annots[img_id].append(annot)
         
-        # Create samples list
+        # Create samples list - Load ALL images (including those without annotations)
+        # This is important for learning background and reducing false positives
         samples = []
+        no_annotation_count = 0
+        
         for img_id, filename in img_id_to_filename.items():
-            if img_id in img_id_to_annots:
-                img_path = self.image_dir / filename
-                if img_path.exists():
-                    samples.append((img_path, annot_file))
+            img_path = self.image_dir / filename
+            if img_path.exists():
+                samples.append((img_path, annot_file))
+                if img_id not in img_id_to_annots:
+                    no_annotation_count += 1
+        
+        if no_annotation_count > 0:
+            print(f"  ℹ️  {no_annotation_count} images without annotations (background images)")
         
         return samples
     

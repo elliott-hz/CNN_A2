@@ -158,7 +158,6 @@ class FasterRCNNTrainer:
             epoch_box_loss = 0.0
             epoch_cls_loss = 0.0
             batch_count = 0
-            skipped_batches = 0
             
             train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{self.epochs} [Train]", dynamic_ncols=True, leave=True)
             
@@ -166,15 +165,19 @@ class FasterRCNNTrainer:
                 images = [img.to(device) for img in images]
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 
-                # Skip batches where all images have no valid bboxes
-                if all(len(t['boxes']) == 0 for t in targets):
-                    skipped_batches += 1
-                    continue
+                # Note: Faster R-CNN can handle empty targets (background images)
+                # It will still compute loss_objectness and loss_classifier for background learning
+                # No need to skip batches with empty annotations
                 
                 # Forward pass with AMP (mixed precision)
                 with autocast(enabled=use_amp):
                     loss_dict = model(images, targets)
                     losses = sum(loss for loss in loss_dict.values())
+                
+                # Skip if total loss is NaN or Inf (safety check)
+                if not torch.isfinite(losses):
+                    print(f"  ⚠ Warning: Non-finite loss at batch {batch_idx}, skipping")
+                    continue
                 
                 # Track box and cls loss components
                 epoch_box_loss += loss_dict.get('loss_box_reg', 0).item()
@@ -214,10 +217,6 @@ class FasterRCNNTrainer:
 
             if avg_train_loss < best_train_loss:
                 best_train_loss = avg_train_loss
-            
-            # Report skipped batches if any
-            if skipped_batches > 0:
-                print(f"  ⚠ Skipped {skipped_batches} training batches (all images had no valid objects)")
             
             # Fast mAP evaluation on validation set (< 5 seconds)
             map50, map50_95, precision, recall = self._fast_evaluate(model, val_loader, device, epoch, self.epochs)

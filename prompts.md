@@ -1,8 +1,14 @@
-1. please read CNN_A2/README.md.
-2. read all the markdown files in the folder of CNN_A2/requirements/.
-3. now please read and understand the whole process of all 9 classification experiments in the package of CNN_A2/experiments/ (start with 'classification_' python files)
+please read CNN_A2/README.md.
 
-4.1: only 4 classification experiments (all result shown in the folder of CNN_A2/outputs/train_history-run-1/) please read all of them (there is a summary markdown file named: experiment_analysis.md in this folder)
+read all the markdown files in the folder of CNN_A2/requirements/.
+
+now please read and understand the whole process of all 6 classification experiments in the package of CNN_A2/experiments/classification_ResNet50_baseline.py
+classification_ResNet50_reduced_v1.py
+classification_ResNet50_reduced_v2.py
+classification_ResNet50_deeper_v1.py
+classification_ResNet50_deeper_v2.py
+classification_ResNet50_deeper_v3.py
+
 
 
 

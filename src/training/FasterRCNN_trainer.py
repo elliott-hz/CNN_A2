@@ -21,33 +21,33 @@ from torch.cuda.amp import autocast, GradScaler
 # ==============================================================================
 
 FASTERRCNN_V1_CONFIG = {
-    # Baseline Configuration
-    'learning_rate': 0.0005,
-    'batch_size': 4,        # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
-    'epochs': 2,
-    'optimizer': 'adam',
-    'weight_decay': 1e-4,
-    'patience': 15,         # Early stopping patience
+    # Baseline Configuration - Optimized for 300+ epochs training
+    'learning_rate': 0.0005,      # Standard LR for Faster R-CNN
+    'batch_size': 4,              # T4 GPU memory constraint (Faster R-CNN is memory-intensive)
+    'epochs': 320,                # 300+ epochs as required by instructor
+    'optimizer': 'adam',          # Adam optimizer for stable convergence
+    'weight_decay': 1e-4,         # Standard regularization
+    'patience': 50,               # Extended patience for long training (early stopping after 50 epochs no improvement)
 }
 
 FASTERRCNN_V2_CONFIG = {
-    # Deeper Backbone Configuration (Added Conv Layers)
-    'learning_rate': 0.0003, # Lower LR for deeper model stability
-    'batch_size': 4,         # Same batch size (deeper model uses slightly more memory)
-    'epochs': 2,            # More epochs for convergence
+    # Deeper Backbone Configuration (Added Conv Layers) - Optimized for 300+ epochs
+    'learning_rate': 0.0003,      # Lower LR for deeper model stability
+    'batch_size': 4,              # Same batch size (deeper model uses slightly more memory)
+    'epochs': 350,                # More epochs for deeper model to converge
     'optimizer': 'adam',
-    'weight_decay': 5e-4,    # Higher weight decay to prevent overfitting
-    'patience': 20,          # Longer patience for deeper model
+    'weight_decay': 5e-4,         # Higher weight decay to prevent overfitting in deeper model
+    'patience': 60,               # Longer patience for deeper model (needs more time to stabilize)
 }
 
 FASTERRCNN_V3_CONFIG = {
-    # Shallower Backbone Configuration (Reduced Conv Layers)
-    'learning_rate': 0.0005,
-    'batch_size': 4,         # Can potentially increase but keeping consistent
-    'epochs': 2,            # Fewer epochs needed for simpler model
+    # Shallower Backbone Configuration (Reduced Conv Layers) - Optimized for 300+ epochs
+    'learning_rate': 0.0005,      # Standard LR (shallower model can handle higher LR)
+    'batch_size': 4,              # Consistent batch size for fair comparison
+    'epochs': 300,                # Simpler model may converge faster
     'optimizer': 'adam',
-    'weight_decay': 1e-4,
-    'patience': 15,          # Standard patience
+    'weight_decay': 1e-4,         # Standard regularization
+    'patience': 40,               # Moderate patience (simpler model stabilizes quicker)
 }
 
 

@@ -76,7 +76,7 @@ def main():
         train_loader, val_loader, test_loader = create_faster_rcnn_dataloaders(
             data_root=DATA_ROOT,
             batch_size=TRAIN_CONFIG['batch_size'],
-            num_workers=2,
+            num_workers=4,
             annotation_format=ANNOTATION_FORMAT,
             class_names=CLASS_NAMES
         )

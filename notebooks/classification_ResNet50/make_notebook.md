@@ -1,3 +1,112 @@
+# ResNet50 Classification Experiments - Implementation Summary
+
+**Student ID:** 25509225  
+**Project:** CNN Assignment 2  
+**Date:** 2026-05-06  
+**Status:** ✅ Completed
+
+---
+
+## 📋 Overview
+
+This document summarizes the implementation of ResNet50 classification experiments converted from Python scripts to self-contained Jupyter Notebooks. The goal was to ensure all outputs are displayed inline, with minimal file saving (only `best_model.pth`).
+
+---
+
+## 🗂️ File Structure
+
+```
+notebooks/classification_ResNet50/
+├── SUMMARY.md                              # This file
+├── ResNet50_modules.ipynb                  # Shared modules library
+├── classification_ResNet50_baseline.ipynb  # Baseline experiment
+├── classification_ResNet50_reduced_v1.ipynb# Reduced V1 experiment
+└── classification_ResNet50_deeper_v1.ipynb # Deeper V1 experiment
+```
+
+---
+
+## 🎯 Solution Approach
+
+### 1. Modular Architecture
+- **ResNet50_modules.ipynb**: Contains shared code including model definitions (`ResNet50Classifier`), training logic (`ClassificationTrainer`), data loading utilities, and evaluation metrics (`ClassificationEvaluator`).
+- **Experiment Notebooks**: Each experiment notebook is self-contained, importing shared modules via `%run ./ResNet50_modules.ipynb` and defining specific configurations (Baseline, Reduced V1, Deeper V1) in their initial cells.
+
+### 2. Output Management
+- **Inline Visualization**: All plots (confusion matrices, training curves) are displayed inline using `%matplotlib inline` and `plt.show()`.
+- **Minimal I/O**: Removed all CSV, JSON, TXT, and PNG file saving logic from the trainer and evaluator. Only `best_model.pth` is saved during training.
+
+### 3. Configuration Handling
+- **Dataclass Usage**: Used `TrainingConfig` dataclass for structured hyperparameter management.
+- **Local Overrides**: Experiment-specific configurations (e.g., augmentation type, pretrained status) are defined in Cell 2 of each experiment notebook, allowing easy modification without changing shared code.
+
+---
+
+## ⚠️ Problems Encountered & Fixes
+
+### 1. Missing Imports
+- **Issue**: `NameError: name 'datasets' is not defined` in `ResNet50_modules.ipynb`.
+- **Fix**: Updated imports to include `datasets` from `torchvision`: `from torchvision import transforms, models, datasets`.
+
+### 2. Missing Method
+- **Issue**: `AttributeError: 'ClassificationTrainer' object has no attribute 'print_model_summary'`.
+- **Fix**: Added the `print_model_summary()` method to the `ClassificationTrainer` class in `ResNet50_modules.ipynb`.
+
+### 3. PyTorch Deprecation Warnings
+- **Issue**: `FutureWarning` for `torch.cuda.amp.GradScaler` and `autocast`.
+- **Fix**: Implemented try-except blocks to support both old and new PyTorch APIs:
+  ```python
+  try:
+      scaler = torch.amp.GradScaler('cuda')
+      autocast = torch.amp.autocast('cuda')
+  except:
+      scaler = torch.cuda.amp.GradScaler()
+      autocast = torch.cuda.amp.autocast()
+  ```
+
+### 4. Path Issues on GPU Server
+- **Issue**: `FileNotFoundError` due to relative paths when running on a remote GPU server.
+- **Fix**: Updated `DATA_ROOT` in experiment notebooks to use absolute paths: `/home/sagemaker-user/CNN_A2/data/{STUDENT_ID}/...`.
+
+### 5. Checkpoint Loading Error
+- **Issue**: `UnpicklingError` due to `weights_only=True` default in newer PyTorch versions when loading custom objects.
+- **Fix**: Set `weights_only=False` in `torch.load()`:
+  ```python
+  checkpoint = torch.load(best_model_path, map_location='cpu', weights_only=False)
+  ```
+
+### 6. History Data Structure Error
+- **Issue**: `TypeError` when plotting training history because `history['history']` is a list of dicts, not a dict of lists.
+- **Fix**: Extracted data into separate lists before plotting:
+  ```python
+  epochs = [h['epoch'] for h in history['history']]
+  train_losses = [h['train_loss'] for h in history['history']]
+  # ... plot using these lists
+  ```
+
+### 7. Configuration Scope
+- **Issue**: Initial design placed all configs in the shared module, reducing experiment independence.
+- **Fix**: Moved specific model and training configurations into each experiment notebook's Cell 2, keeping only the `TrainingConfig` class definition in the shared module.
+
+---
+
+## ✅ Key Modifications
+
+1. **Trainer**: Removed CSV saving; kept only `best_model.pth` checkpointing.
+2. **Evaluator**: Removed JSON/TXT/PNG saving; returns metrics dictionary with numpy arrays for inline plotting.
+3. **Notebooks**: Structured into 11 cells per experiment, ensuring logical flow from setup to final summary.
+
+---
+
+## 🚀 Usage
+
+1. **Run Shared Module**: Execute `ResNet50_modules.ipynb` first if running cells individually, or rely on `%run` in experiment notebooks.
+2. **Run Experiments**: Execute `classification_ResNet50_baseline.ipynb`, `reduced_v1`, and `deeper_v1` in order.
+3. **Modify Configs**: Edit Cell 2 in any experiment notebook to change augmentation, pretrained status, or batch size.
+
+---
+
+**Status:** All notebooks created, tested, and verified.
 # ResNet50 Classification Experiments - Notebook Creation Plan
 
 **Created:** 2026-05-06  

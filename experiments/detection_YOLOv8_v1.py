@@ -22,7 +22,6 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.models.YOLOv8DetectorModel import YOLOv8Detector, YOLOV8_BASELINE_CONFIG
 from src.training.YOLOv8_trainer import YOLOv8Trainer, YOLOV8_V1_CONFIG
 from src.evaluation.detection_evaluator import DetectionEvaluator
-from src.utils.dataset_quality_checker import DatasetQualityChecker
 
 
 def parse_args():
@@ -80,17 +79,6 @@ def main():
     print(f'Train path: {dataset_config.get("train", "N/A")}')
     print(f'Val path: {dataset_config.get("val", "N/A")}')
     print(f'Test path: {dataset_config.get("test", "N/A")}')
-    
-    # Step 1.5: Analyze dataset quality
-    print("\n[1.5/5] Analyzing dataset quality...")
-    quality_checker = DatasetQualityChecker(str(dataset_config_path))
-    quality_checker.print_summary()
-    
-    # Save detailed quality report to output directory
-    quality_report_path = output_dir / 'dataset_quality_report.md'
-    with open(quality_report_path, 'w') as f:
-        f.write(quality_checker.generate_full_report())
-    print(f'Dataset quality report saved to: {quality_report_path}')
     
     # Step 2: Initialize model
     print("\n[2/5] Initializing YOLOv8 model...")

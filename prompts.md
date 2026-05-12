@@ -1,6 +1,6 @@
 ML1: YOLOv8_v1
 ML3: YOLOv8_v2
-BBB: YOLOv8_v1
+BBB: YOLOv8_v3
 
 
 GPU4: FasterRCNN-V4

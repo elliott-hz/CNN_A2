@@ -89,7 +89,7 @@ class YOLOv8Trainer:
         self.close_mosaic = close_mosaic
     
     def train(self, model, train_data: str, val_data: str, 
-             output_dir: str, **kwargs) -> Dict:
+             output_dir: str, resume: bool = False, **kwargs) -> Dict:
         """
         Train YOLOv8 model.
         
@@ -98,6 +98,7 @@ class YOLOv8Trainer:
             train_data: Training dataset config path
             val_data: Validation dataset config path
             output_dir: Directory to save outputs
+            resume: Whether to resume training from last checkpoint
             **kwargs: Additional training arguments
             
         Returns:
@@ -129,6 +130,17 @@ class YOLOv8Trainer:
             'verbose': True,  # Enable verbose output for debugging
         }
         
+        # Handle resume parameter
+        if resume:
+            checkpoint_path = output_path / 'train' / 'weights' / 'last.pt'
+            if checkpoint_path.exists():
+                print(f"\n✓ Resuming training from checkpoint: {checkpoint_path}")
+                train_args['resume'] = str(checkpoint_path)
+            else:
+                print(f"\n⚠ Warning: Checkpoint not found at {checkpoint_path}")
+                print("  Starting fresh training instead...")
+                resume = False
+        
         # Add any additional kwargs (allows overriding if needed)
         train_args.update(kwargs)
         
@@ -143,6 +155,7 @@ class YOLOv8Trainer:
         print(f"  Patience: {self.patience}")
         print(f"  Cosine LR: {self.cos_lr}")
         print(f"  Close Mosaic: {self.close_mosaic}")
+        print(f"  Resume: {resume}")
         print(f"  Project (output base): {output_path}")
         print(f"  Name (subdirectory): train")
         print(f"  Expected output: {output_path / 'train'}")

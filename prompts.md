@@ -1,7 +1,10 @@
+AAA: ResNet50_baseline
+BBB: ResNet50_v1
+CCC: ResNet50_v2
+
 ML1: YOLOv8_v1
 ML3: YOLOv8_v2
 BBB: YOLOv8_v3
-
 
 GPU4: FasterRCNN-V4
 GPU3: FasterRCNN-V3
